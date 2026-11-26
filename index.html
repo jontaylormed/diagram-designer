@@ -1,0 +1,2648 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Geometry Diagram Designer</title>
+<style>/* Warm creams and browns, soft on the eyes. build.ps1 checks the contrast of every text and border pair. */
+:root {
+  --cream: #fbf6ec; --card: #fffdf8; --title: #94401c; --heading: #33261c; --paper: #fffcf5;
+  --text: #3b2f25; --muted: #5c4a3a; --soft: #766657; --line: #e6dccb; --card-line: #dccbb0; --border: #8a6d4b; --panel: #f3ead9;
+  --accent: #6b3f1d; --accent-bg: #f3e3c8; --primary: #5a3a22; --primary-hover: #4a2f1b;
+  --warn-bg: #f7e9cf; --warn: #6b3f12;
+  --figure: #3b2f25; --hl: #94401c; --hl-halo: #f3d9c4;
+}
+* { box-sizing: border-box; }
+body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; font-size: 17px; line-height: 1.5; color: var(--text); background: var(--cream); }
+main { max-width: 1180px; margin: 0 auto; padding: 10px 14px 24px; }
+[hidden] { display: none !important; }
+.bar { border-bottom: 3px solid var(--title); padding-bottom: 8px; margin-bottom: 10px; }
+h1 { font-size: 1.2rem; margin: 0; color: var(--title); line-height: 1.25; }
+
+button, select, input[type="text"] { font: inherit; min-height: 36px; border: 2px solid var(--accent); border-radius: 8px; background: var(--card); color: var(--accent); }
+button { padding: 4px 10px; font-size: 0.9rem; font-weight: 600; cursor: pointer; }
+button:hover:not(:disabled) { background: var(--accent-bg); }
+button:disabled { border-color: var(--card-line); color: var(--muted); cursor: default; }
+button.primary { background: var(--primary); border-color: var(--primary); color: var(--paper); }
+button.primary:hover { background: var(--primary-hover); }
+button.small { min-height: 32px; padding: 2px 10px; font-size: 0.85rem; }
+button.wide { display: block; width: 100%; }
+select, input[type="text"] { padding: 6px 10px; color: var(--text); }
+input[type="text"] { width: 100%; }
+button:focus-visible, select:focus-visible, input:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+/* The board for drawing, the panels for changing a piece and downloading. Side by side when there's room. */
+.split { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-start; }
+.card { background: var(--card); border: 1px solid var(--card-line); border-radius: 10px; padding: 10px 12px; min-width: 0; }
+.board-card { flex: 3 1 480px; }
+.side { flex: 1 1 250px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.card-title { margin: 0 0 6px; font-size: 0.8rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+
+.tools { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 0 0 8px; }
+.tools button[aria-pressed="true"] { background: var(--primary); border-color: var(--primary); color: var(--paper); }
+.edit-tools { margin: 8px 0 0; }
+.grid-pick { margin-left: auto; display: flex; align-items: center; gap: 6px; font-size: 0.95rem; font-weight: 600; color: var(--muted); }
+.grid-pick select { min-height: 36px; }
+.snap-pick { margin: 0 0 0 auto; font-size: 0.95rem; font-weight: 600; color: var(--muted); }
+.snap-pick + .grid-pick { margin-left: 0; }
+.hint-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 6px 0 0; min-height: 36px; }
+.hint { margin: 0; font-size: 0.9rem; color: var(--muted); }
+.status { margin: 6px 0 0; font-size: 0.9rem; color: var(--warn); min-height: 1.3em; }
+
+svg#board { display: block; width: 100%; height: auto; border: 1px solid var(--card-line); border-radius: 8px; touch-action: manipulation; user-select: none; -webkit-user-select: none; }
+svg#board.adding { cursor: crosshair; }
+#board .pt, #board .piece { cursor: pointer; outline: none; }
+#board .pt .hit { touch-action: none; }
+#board .pt:focus-visible .hit { stroke: var(--accent); stroke-width: 3; }
+
+/* The Selected panel: one short form for the piece that was tapped. */
+.lead-sm { display: block; font-weight: 700; margin: 0 0 8px; color: var(--heading); }
+.field { display: block; margin: 0 0 10px; font-size: 0.95rem; font-weight: 600; color: var(--muted); }
+.field select, .field input[type="text"] { display: block; width: 100%; margin-top: 2px; font-weight: 400; }
+.check { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; min-height: 36px; }
+.check input { width: 22px; height: 22px; accent-color: var(--primary); }
+#dl ~ .check { margin: 6px 0 0 20px; }
+.muted.none { text-align: center; }
+.muted { color: var(--muted); margin: 0; }
+.field-row { display: flex; flex-wrap: wrap; gap: 8px; }
+button.wide + button.wide { margin-top: 8px; }
+.symbols { display: flex; flex-wrap: wrap; gap: 4px; margin: -4px 0 10px; }
+.symbols .sym { min-width: 36px; min-height: 36px; padding: 2px 6px; font-size: 1rem; font-weight: 400; border-width: 1px; color: var(--text); }
+.note, .measure { font-size: 0.9rem; margin: 0 0 10px; }
+#board .txt, #board .angle, #board .circ, #board .arc, #board .poly { cursor: pointer; outline: none; }
+#board .txt .hit { touch-action: none; }
+#board .txt:focus-visible .hit, #board .poly:focus-visible .hit { stroke: var(--accent); stroke-width: 3; }
+#board .angle:focus-visible .hit { stroke: var(--accent); stroke-width: 2; }
+.row-title { font-size: 0.8rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); flex: 1 1 100%; }
+/* Make This Angle / Make This Side: the measure, which point moves, and the button. */
+.exact { border-top: 1px solid var(--line); margin: 4px 0 10px; padding-top: 10px; }
+details.card > summary { font-weight: 700; color: var(--heading); cursor: pointer; min-height: 32px; }
+details.card > summary:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+details.card[open] > summary { margin-bottom: 6px; }
+.tri-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 10px; margin-top: 8px; }
+#tri-choice { margin-top: 6px; }
+.starters { padding-bottom: 8px; margin-bottom: 8px; border-bottom: 1px solid var(--line); }
+/* Alt Text: a description to copy; under it, every piece as a line of text, and choosing one opens its form. */
+.words { margin-top: 10px; border-top: 1px solid var(--line); padding-top: 8px; }
+.words > summary { font-weight: 700; color: var(--accent); cursor: pointer; min-height: 32px; }
+.words > summary:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.words textarea { display: block; width: 100%; box-sizing: border-box; margin-top: 4px; padding: 8px 10px; font: inherit; font-weight: 400; font-size: 0.9rem; line-height: 1.4; color: var(--text); background: var(--card); border: 2px solid var(--accent); border-radius: 8px; resize: none; overflow: hidden; }
+.words textarea:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.words-list { margin-top: 8px; }
+/* Figure names in notation, as G.I.N. teaches it: a bar, an arrow or a curve over the letters.
+   Everything is sized in em, so the mark scales with the text. */
+.nt { display: inline-block; position: relative; padding-top: 0.34em; line-height: 1.15; }
+.nt-pts { font-weight: 700; letter-spacing: 0.03em; }
+.nt-svg { position: absolute; top: 0.02em; left: 50%; transform: translateX(-50%); height: 0.3em; overflow: visible; }
+.words-list > summary { font-weight: 600; font-size: 0.9rem; color: var(--accent); cursor: pointer; min-height: 32px; }
+.words-list > summary:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.words ul { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.words .word { width: 100%; text-align: left; font-weight: 400; color: var(--text); border-width: 1px; min-height: 36px; padding: 4px 10px; font-size: 0.9rem; }
+.words .word[aria-current="true"] { background: var(--accent-bg); border-width: 2px; }
+/* Rows of buttons sit centered, on every screen width. */
+.tools, .field-row, .symbols, .hint-row, .row { justify-content: center; }
+.grid-pick, .snap-pick { margin-left: 0; }
+.row-title { text-align: center; }
+.exact, #tri-card, .side .card:last-child { text-align: center; }
+.exact .field, #tri-card .field, #tri-card .hint { text-align: left; }
+#selected > button, .exact > button { display: block; margin-left: auto; margin-right: auto; }
+.board-card > .card-title { text-align: center; }
+.start-regular { display: inline-flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 6px; }
+/* Keyboard focus on a segment, ray, line, circle or arc: a dashed dark band along it, clearly
+   different from the pale band that shows what is selected. */
+#board .piece:focus-visible .hit, #board .circ:focus-visible .hit, #board .arc:focus-visible .hit { stroke: var(--accent); stroke-width: 9; stroke-dasharray: 3 5; stroke-linecap: butt; }
+#board:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+#sel-name:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+h2.card-title, h2.row-title { margin-top: 0; line-height: 1.5; }
+h2.row-title { margin-bottom: 0; }
+#sel-note:empty { display: none; }
+#sel-note { margin: 8px 0 0; padding: 6px 8px; border: 1px solid var(--card-line); border-radius: 6px; background: var(--warn-bg); }
+/* Why the picture is not to scale: one line for each mark or label the drawing does not match. */
+.scale-why { margin-top: 8px; padding: 8px 10px; border: 1px solid var(--card-line); border-radius: 8px; background: var(--warn-bg); color: var(--warn); font-size: 0.9rem; }
+.scale-why .lead-sm { color: var(--warn); margin-bottom: 4px; }
+.scale-why ul { margin: 0; padding-left: 20px; }
+/* The focus band is wider than the pale selected band (up to 11.2 wide), so it still shows around a
+   piece that is both selected and focused. */
+#board .piece:focus-visible .hit, #board .circ:focus-visible .hit, #board .arc:focus-visible .hit { stroke-width: 17; }
+/* A polygon's sides are drawn over its edge, so its focus band is wide enough to show on both sides of them. */
+#board .poly:focus-visible .hit { stroke: var(--accent); stroke-width: 9; stroke-dasharray: 3 5; }
+.keys { margin-top: 4px; text-align: center; font-size: 0.8rem; color: var(--soft); }
+.scale-why p { margin: 4px 0 0; }
+.scale-why { text-align: left; }
+.parts { margin: 0 0 10px; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+/* Every Element in a List: the geometric label in one column, what the diagram shows in the next. */
+.words .word, .el-head { display: flex; align-items: baseline; gap: 10px; }
+.el-head { margin: 8px 0 0; padding: 0 11px; font-size: 0.8rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.el-name { flex: 0 0 6.5em; color: var(--heading); }
+.words .word .el-name { font-size: 1.05rem; }
+.el-draw { flex: 1 1 0; min-width: 0; }
+.el-none { color: var(--muted); font-size: 0.9rem; }
+</style>
+</head>
+<body>
+<main id="app">
+  <header class="bar">
+    <h1>Geometry Diagram Designer</h1>
+  </header>
+  <div class="split">
+    <div class="card board-card">
+      <div id="starters" class="tools starters" role="group" aria-labelledby="start-title">
+        <h2 class="row-title" id="start-title">Start With</h2>
+        <button type="button" class="small" data-start="triangle">Triangle</button>
+        <button type="button" class="small" data-start="quadrilateral">Quadrilateral</button>
+        <button type="button" class="small" data-start="transversal">Parallel Lines and a Transversal</button>
+        <button type="button" class="small" data-start="angle">Angle</button>
+        <button type="button" class="small" data-start="circle">Circle</button>
+        <button type="button" class="small" data-start="tangents">Circle With Tangent Lines</button>
+        <span class="start-regular">
+          <button type="button" class="small" data-start="regular">Regular Polygon</button>
+          <label class="grid-pick" for="start-sides">Sides
+            <select id="start-sides">
+              <option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6" selected>6</option>
+              <option value="7">7</option><option value="8">8</option><option value="9">9</option><option value="10">10</option><option value="11">11</option><option value="12">12</option>
+            </select>
+          </label>
+        </span>
+      </div>
+      <h2 class="card-title" id="draw-title">Draw</h2>
+      <div id="tools" class="tools" role="group" aria-labelledby="draw-title">
+        <button type="button" data-tool="select" aria-pressed="true">Select</button>
+        <button type="button" data-tool="point" aria-pressed="false">Point</button>
+        <button type="button" data-tool="segment" aria-pressed="false">Segment</button>
+        <button type="button" data-tool="ray" aria-pressed="false">Ray</button>
+        <button type="button" data-tool="line" aria-pressed="false">Line</button>
+        <button type="button" data-tool="circle" aria-pressed="false">Circle</button>
+        <button type="button" data-tool="arc" aria-pressed="false">Arc</button>
+        <button type="button" data-tool="polygon" aria-pressed="false">Polygon</button>
+        <button type="button" data-tool="angle" aria-pressed="false">Angle Mark</button>
+        <button type="button" data-tool="text" aria-pressed="false">Text Label</button>
+      </div>
+      <svg id="board" role="group" aria-label="Diagram" tabindex="-1"></svg>
+      <p class="hint-row"><span id="hint" class="hint"></span><button type="button" id="finish-poly" class="small primary" hidden>Finish Polygon</button><button type="button" id="add-center" class="small" hidden>Add a Point</button></p>
+      <p id="status" class="status" role="status" aria-live="polite"></p>
+      <p class="hint keys">With a keyboard: Tab to a point or piece, Enter to choose it, arrow keys to move a point, Delete to remove it.</p>
+      <div class="tools edit-tools">
+        <button type="button" id="undo" class="small">Undo</button>
+        <button type="button" id="redo" class="small">Redo</button>
+        <button type="button" id="delete" class="small">Delete</button>
+        <button type="button" id="clear" class="small">Start Over</button>
+        <label class="check snap-pick" for="snap"><input type="checkbox" id="snap" checked> Snap to Grid</label>
+        <label class="grid-pick" for="grid">Grid Size
+          <select id="grid">
+            <option value="small">Small</option>
+            <option value="medium" selected>Medium</option>
+            <option value="large">Large</option>
+            <option value="xlarge">Extra Large</option>
+          </select>
+        </label>
+      </div>
+      <div class="tools edit-tools" role="group" aria-labelledby="whole-title">
+        <h2 class="row-title" id="whole-title">Whole Drawing</h2>
+        <button type="button" id="marks" class="small toggle" aria-pressed="true">Marks Are On</button>
+        <button type="button" id="fit" class="small">Fit to Frame</button>
+        <button type="button" id="turn-left" class="small">Turn Left</button>
+        <button type="button" id="turn-right" class="small">Turn Right</button>
+        <button type="button" id="flip-x" class="small">Flip Left to Right</button>
+        <button type="button" id="flip-y" class="small">Flip Top to Bottom</button>
+        <label class="grid-pick" for="scale">Scale Note
+          <select id="scale">
+            <option value="auto" selected>Automatic</option>
+            <option value="not">Not Drawn to Scale</option>
+            <option value="yes">Drawn to Scale</option>
+            <option value="none">No Note</option>
+          </select>
+        </label>
+      </div>
+      <div id="scale-why" class="scale-why" role="status" aria-live="polite" hidden>
+        <p class="lead-sm" id="scale-lead"></p>
+        <ul id="scale-list"></ul>
+        <p id="scale-how"></p>
+      </div>
+      <details class="words" open>
+        <summary>Alt Text</summary>
+        <label class="field" for="alt">A description of the picture, for students who cannot see it
+          <textarea id="alt" rows="1" readonly placeholder="Nothing is drawn yet."></textarea>
+        </label>
+        <div class="field-row"><button type="button" id="alt-copy" class="small">Copy Alt Text</button></div>
+        <p id="alt-note" class="hint" role="status" aria-live="polite"></p>
+        <p class="hint keys">Download Picture copies this text too. Paste it into the Alt Text box when you add the picture to your page.</p>
+        <details class="words-list">
+          <summary>Every Element in a List</summary>
+          <p class="hint">Each element&rsquo;s geometric label, then what the diagram shows for it. Choose one to open its form.</p>
+          <p class="el-head" aria-hidden="true"><span class="el-name">Label</span><span class="el-draw">In the Diagram</span></p>
+          <ul id="words"></ul>
+        </details>
+      </details>
+    </div>
+    <div class="side">
+      <div class="card" id="sel-card">
+        <h2 class="card-title" id="sel-title">Selected</h2>
+        <div id="selected" role="group" aria-labelledby="sel-title"></div>
+        <p id="sel-note" class="status"></p>
+      </div>
+      <details class="card" id="tri-card">
+        <summary>Draw From Measures</summary>
+        <label class="field" for="m-kind">Figure
+          <select id="m-kind">
+            <option value="triangle" selected>Triangle</option>
+            <option value="angle">Angle</option>
+            <option value="circle">Circle</option>
+          </select>
+        </label>
+        <div id="m-angle" hidden>
+          <p class="hint">Type the measure. The angle is drawn exactly, with its measure labeled.</p>
+          <label class="field" for="ang-deg">Angle Measure<input type="text" id="ang-deg" inputmode="decimal" autocomplete="off" placeholder="40"></label>
+        </div>
+        <div id="m-circle" hidden>
+          <p class="hint">Type a radius, an arc measure, or both. The circle is drawn as large as fits, with what you typed labeled.</p>
+          <div class="tri-grid">
+            <label class="field" for="cir-r">Radius<input type="text" id="cir-r" inputmode="decimal" autocomplete="off" placeholder="5"></label>
+            <label class="field" for="cir-arc">Arc Measure<input type="text" id="cir-arc" inputmode="decimal" autocomplete="off" placeholder="120"></label>
+          </div>
+        </div>
+        <div id="m-triangle">
+        <p class="hint">Fill in any three, with at least one side. Side a is across from angle A. The triangle is drawn to exact shape, as large as fits.</p>
+        <div class="tri-grid">
+          <label class="field" for="tri-a">Side a<input type="text" id="tri-a" inputmode="decimal" autocomplete="off"></label>
+          <label class="field" for="tri-A">Angle A<input type="text" id="tri-A" inputmode="decimal" autocomplete="off"></label>
+          <label class="field" for="tri-b">Side b<input type="text" id="tri-b" inputmode="decimal" autocomplete="off"></label>
+          <label class="field" for="tri-B">Angle B<input type="text" id="tri-B" inputmode="decimal" autocomplete="off"></label>
+          <label class="field" for="tri-c">Side c<input type="text" id="tri-c" inputmode="decimal" autocomplete="off"></label>
+          <label class="field" for="tri-C">Angle C<input type="text" id="tri-C" inputmode="decimal" autocomplete="off"></label>
+        </div>
+        </div>
+        <button type="button" id="tri-draw" class="primary small">Draw the Figure</button>
+        <p id="tri-note" class="status" role="status" aria-live="polite"></p>
+        <div id="tri-choice" class="field-row"></div>
+      </details>
+      <div class="card">
+        <h2 class="card-title">Download</h2>
+        <button type="button" id="dl" class="primary wide">Download Picture</button>
+        <label class="check" for="dl-bold"><input type="checkbox" id="dl-bold"> Bold Lines (for a Projector)</label>
+        <label class="check" for="dl-bw"><input type="checkbox" id="dl-bw"> Black and White (for Printing)</label>
+        <p id="dl-note" class="hint" role="status" aria-live="polite"></p>
+      </div>
+      <div class="card">
+        <h2 class="card-title">Open</h2>
+        <button type="button" id="open" class="wide">Open a Diagram</button>
+        <input type="file" id="open-file" accept="image/png" hidden>
+        <p class="hint">Keep the picture you download: it can be opened here again to change it.</p>
+        <p id="open-note" class="hint" role="status" aria-live="polite"></p>
+        <div id="open-why" class="scale-why" role="status" aria-live="polite" hidden>
+          <p class="lead-sm" id="open-lead"></p>
+          <ul id="open-list"></ul>
+          <p id="open-how"></p>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+<script>/* The diagram a teacher is drawing. No DOM here, so every rule can be tested.
+   A diagram is points (each with an id, a place on the grid and a letter) and the things drawn
+   from them: pieces (segments, rays and lines between two points; for a ray, a is the endpoint),
+   angle marks, polygons, circles and free text labels. Grid: whole units, y pointing up; points
+   stay at least one unit inside the edge. */
+const Model = (() => {
+  'use strict';
+  const GRIDS = { small: { w: 20, h: 14, name: 'Small' }, medium: { w: 30, h: 20, name: 'Medium' }, large: { w: 40, h: 28, name: 'Large' }, xlarge: { w: 60, h: 40, name: 'Extra Large' } };
+  // Where a point's letter sits, as a direction on screen (x right, y down).
+  const SIDES = {
+    n: { d: [0, -1], name: 'Above' }, ne: { d: [1, -1], name: 'Above Right' }, e: { d: [1, 0], name: 'Right' }, se: { d: [1, 1], name: 'Below Right' },
+    s: { d: [0, 1], name: 'Below' }, sw: { d: [-1, 1], name: 'Below Left' }, w: { d: [-1, 0], name: 'Left' }, nw: { d: [-1, -1], name: 'Above Left' },
+  };
+  const KINDS = { segment: 'Segment', ray: 'Ray', line: 'Line' };
+  // A polygon's inside: no shade, or one of four soft, warm shades that also differ in lightness.
+  const SHADES = ['None', 'Sand', 'Peach', 'Clay', 'Rose'];
+  // The note about scale on the picture: decided by the drawing (auto), always one of the two, or never.
+  const SCALES = { auto: 'Automatic', not: 'Not Drawn to Scale', yes: 'Drawn to Scale', none: 'No Note' };
+  const LISTS = ['points', 'pieces', 'angles', 'polys', 'circles', 'arcs', 'texts'];
+  const EPS = 1e-7;
+  const PULL = 1.2;            // squares a held point is dragged away from its piece or crossing before it lets go
+  // A key the object itself has (so a name like "constructor" from a file is never mistaken for one).
+  const own = (o, k) => typeof k === 'string' && Object.prototype.hasOwnProperty.call(o, k);
+
+  const create = (grid = 'medium') => ({ v: 1, grid, points: [], pieces: [], angles: [], polys: [], circles: [], arcs: [], texts: [], marks: true, scale: 'auto', next: 1 });
+  const size = doc => GRIDS[doc.grid];
+  const find = (doc, list, id) => doc[list].find(o => o.id === id);
+  const point = (doc, id) => find(doc, 'points', id);
+  const piece = (doc, id) => find(doc, 'pieces', id);
+  const angle = (doc, id) => find(doc, 'angles', id);
+  const poly = (doc, id) => find(doc, 'polys', id);
+  const circle = (doc, id) => find(doc, 'circles', id);
+  const arc = (doc, id) => find(doc, 'arcs', id);
+  const text = (doc, id) => find(doc, 'texts', id);
+  const item = (doc, id) => { for (const l of LISTS) { const o = find(doc, l, id); if (o) return o; } return undefined; };
+  // What kind of thing an id names: 'point', 'piece', 'angle', 'poly', 'circle', 'arc' or 'text'.
+  const typeOf = (doc, id) => { for (const l of LISTS) if (find(doc, l, id)) return l === 'polys' ? 'poly' : l.slice(0, -1); return null; };
+  const inGrid = (g, x, y) => x >= 1 - EPS && x <= g.w - 1 + EPS && y >= 1 - EPS && y <= g.h - 1 + EPS;
+  const pointAt = (doc, x, y, not) => doc.points.find(p => p.id !== not && Math.abs(p.x - x) < 1e-6 && Math.abs(p.y - y) < 1e-6);
+  const dist = (P, Q) => Math.hypot(P.x - Q.x, P.y - Q.y);
+  const radius = (doc, c) => dist(point(doc, c.c), point(doc, c.on));
+
+  // The circle a point rides on: the point is an end of an arc of that circle (and is not the
+  // circle's own center or sizing point). Undefined for every other point.
+  function rideOf(doc, id) {
+    const r = id && doc.arcs.find(a => a.a === id || a.b === id), c = r && circle(doc, r.c);
+    return c && c.c !== id && c.on !== id ? c : undefined;
+  }
+  /* ---------- Points that stay put on a piece ----------
+     A point placed on a piece, or where two pieces cross, is HELD there (p.hold): when those
+     pieces move, it moves with them, so a point on a line stays on the line and a crossing stays
+     a crossing.  hold = { on: pieceId, t }: at fraction t of the way from the piece's a to its b
+     (0.5 is the midpoint);  hold = { cross: [pieceId, pieceId] }: where the two pieces' lines meet. */
+  function heldAt(doc, p) {
+    const h = p.hold;
+    if (!h) return null;
+    if (h.on) {
+      const k = piece(doc, h.on);
+      if (!k || k.a === p.id || k.b === p.id) return null;
+      const A = point(doc, k.a), B = point(doc, k.b);
+      return { x: A.x + h.t * (B.x - A.x), y: A.y + h.t * (B.y - A.y) };
+    }
+    const k = piece(doc, h.cross[0]), m = piece(doc, h.cross[1]);
+    if (!k || !m || [k.a, k.b, m.a, m.b].includes(p.id)) return null;
+    const A = point(doc, k.a), B = point(doc, k.b), C = point(doc, m.a), D = point(doc, m.b);
+    const rx = B.x - A.x, ry = B.y - A.y, sx = D.x - C.x, sy = D.y - C.y, den = rx * sy - ry * sx;
+    if (Math.abs(den) < 1e-9) return { x: p.x, y: p.y };          // the lines are parallel just now: stay put
+    const t = ((C.x - A.x) * sy - (C.y - A.y) * sx) / den;
+    return { x: A.x + t * rx, y: A.y + t * ry };
+  }
+  // Put every held point back where its pieces now are. A hold on a piece that is gone is let go.
+  function settle(doc) {
+    for (let pass = 0; pass < 3; pass++) for (const p of doc.points) {
+      if (!p.hold) continue;
+      const P = heldAt(doc, p);
+      if (!P) { delete p.hold; continue; }
+      p.x = P.x; p.y = P.y;
+    }
+    for (const k of doc.pieces) if (k.tan && !circle(doc, k.tan)) delete k.tan;
+  }
+  // Does point `id` get its place (through holds, however many steps) from point `target`?
+  // Used so a point is never held on a piece that itself depends on that point: a loop.
+  function dependsOn(doc, id, target, depth = 0) {
+    if (id === target) return true;
+    const p = point(doc, id);
+    if (!p || !p.hold || depth > 8) return false;
+    return (p.hold.on ? [p.hold.on] : p.hold.cross).some(kid => { const k = piece(doc, kid); return !!k && (dependsOn(doc, k.a, target, depth + 1) || dependsOn(doc, k.b, target, depth + 1)); });
+  }
+  /* Move several points at once, each to fn(point), carrying along the ends of arcs on their
+     circles and every held point. False, with nothing changed, if the result would put anything
+     off the grid or two points in one place. */
+  function moveMany(doc, ids, fn) {
+    const before = doc.points.map(q => ({ q, x: q.x, y: q.y, hold: q.hold }));
+    const riders = [];
+    for (const c of doc.circles) {
+      if (!ids.includes(c.c) && !ids.includes(c.on)) continue;
+      const C = point(doc, c.c);
+      for (const r of doc.arcs) for (const e of r.c === c.id ? [r.a, r.b] : []) {
+        const E = point(doc, e);
+        if (e !== c.c && e !== c.on && !ids.includes(e) && !riders.some(q => q.E === E)) riders.push({ E, c, ang: Math.atan2(E.y - C.y, E.x - C.x) });
+      }
+    }
+    for (const id of ids) { const p = point(doc, id), to = fn(p); p.x = to.x; p.y = to.y; }
+    for (const q of riders) { const C = point(doc, q.c.c), r = radius(doc, q.c); q.E.x = C.x + r * Math.cos(q.ang); q.E.y = C.y + r * Math.sin(q.ang); }
+    settle(doc);
+    if (sound(doc)) return true;
+    for (const b of before) { b.q.x = b.x; b.q.y = b.y; if (b.hold) b.q.hold = b.hold; else delete b.q.hold; }
+    return false;
+  }
+  // Is every point on the grid, with no two in the same place?
+  function sound(doc) {
+    const g = size(doc);
+    return doc.points.every(p => isFinite(p.x) && isFinite(p.y) && inGrid(g, p.x, p.y) && !pointAt(doc, p.x, p.y, p.id));
+  }
+  // The words for a hold, for the point's form and the list of pieces.
+  function holdText(doc, p) {
+    if (!p.hold) return '';
+    return p.hold.on ? `on ${describe(doc, p.hold.on)}` : `where ${describe(doc, p.hold.cross[0])} and ${describe(doc, p.hold.cross[1])} cross`;
+  }
+
+  // ---------- Tangents ----------
+  // The two points where a line from Q touches circle c (none when Q is on or inside it).
+  function tangentPoints(doc, c, Q) {
+    const C = point(doc, c.c), r = radius(doc, c), d = dist(Q, C);
+    if (d <= r + 1e-6) return [];
+    const base = Math.atan2(Q.y - C.y, Q.x - C.x), a = Math.acos(r / d);
+    return [1, -1].map(s => ({ x: C.x + r * Math.cos(base + s * a), y: C.y + r * Math.sin(base + s * a) }));
+  }
+  // The points a moving point is joined to: the other ends of its pieces, and `from`, the first
+  // point tapped for a piece that is still being drawn.
+  function joined(doc, not, from) {
+    const out = doc.pieces.filter(k => not && (k.a === not || k.b === not)).map(k => (k.a === not ? k.b : k.a));
+    if (from && point(doc, from)) out.push(from);
+    return out;
+  }
+  /* Where a point lands so that its piece is tangent to a circle, when the pointer is close to
+     such a place (else null):
+     - its piece comes from a point outside the circle: the exact tangent point, or a spot farther
+       along that tangent line;
+     - its piece comes from a point on the circle: a spot on the tangent line there (at a right
+       angle to the radius). */
+  function tangentSnap(doc, M, not, from) {
+    const g = size(doc);
+    for (const o of joined(doc, not, from)) {
+      const O = point(doc, o);
+      for (const c of doc.circles) {
+        if (c.c === not || c.on === not) continue;
+        const C = point(doc, c.c), r = radius(doc, c), dO = dist(O, C);
+        if (o !== c.c && Math.abs(dO - r) < 1e-6) {
+          const u = { x: -(O.y - C.y) / r, y: (O.x - C.x) / r }, s = (M.x - O.x) * u.x + (M.y - O.y) * u.y;
+          const off = Math.hypot(M.x - O.x - s * u.x, M.y - O.y - s * u.y), n = Math.round(s) || Math.sign(s);
+          const P = { x: O.x + n * u.x, y: O.y + n * u.y };
+          if (off < 0.4 && Math.abs(s) > 0.5 && inGrid(g, P.x, P.y)) return P;
+          continue;
+        }
+        for (const T of tangentPoints(doc, c, O)) {
+          if (dist(M, T) < 0.5 && inGrid(g, T.x, T.y)) return T;
+          const L = dist(O, T), u = { x: (T.x - O.x) / L, y: (T.y - O.y) / L }, s = (M.x - O.x) * u.x + (M.y - O.y) * u.y;
+          const off = Math.hypot(M.x - O.x - s * u.x, M.y - O.y - s * u.y), P = { x: O.x + Math.round(s) * u.x, y: O.y + Math.round(s) * u.y };
+          if (s > 0.5 && off < 0.3 && inGrid(g, P.x, P.y)) return P;
+        }
+      }
+    }
+    return null;
+  }
+  // The circle a piece is tangent to: its line passes exactly one radius from the center, and the
+  // piece itself reaches the point where they touch. Undefined when it is tangent to none.
+  function tangentTo(doc, id) {
+    const k = piece(doc, id);
+    if (!k) return undefined;
+    const A = point(doc, k.a), B = point(doc, k.b), L = dist(A, B);
+    return doc.circles.find(c => {
+      const C = point(doc, c.c), r = radius(doc, c);
+      const s = ((C.x - A.x) * (B.x - A.x) + (C.y - A.y) * (B.y - A.y)) / L, off = Math.abs((C.x - A.x) * (B.y - A.y) - (C.y - A.y) * (B.x - A.x)) / L;
+      const reaches = k.kind === 'line' || (s >= -1e-6 && (k.kind === 'ray' || s <= L + 1e-6));
+      return Math.abs(off - r) < 1e-6 && reaches;
+    });
+  }
+
+  /* Where a point lands. It snaps to the nearest grid dot, unless the pointer is close to a drawn
+     piece or circle: then it lands exactly on that piece (a grid dot on it, its midpoint, or a
+     whole number of units along it) or on that circle. `not` is the id of the point being moved;
+     `from` is the first point tapped for a piece still being drawn. The result may carry a `hold`
+     (see above) for a spot on a piece or at a crossing. `loose` turns snapping off. `tight` is a
+     smaller catch distance, used when a new point is added: it joins a piece, crossing or circle
+     only when the tap is right on it, not just near it. */
+  function snap(doc, M, not, from, loose, tight) {
+    const g = size(doc), clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+    const G = loose ? { x: clamp(M.x, 1, g.w - 1), y: clamp(M.y, 1, g.h - 1) } : { x: clamp(Math.round(M.x), 1, g.w - 1), y: clamp(Math.round(M.y), 1, g.h - 1) };
+    // A held point keeps its hold: on a piece it slides along that piece; at a crossing it stays.
+    const me = not && point(doc, not);
+    /* It can be pulled off: dragged well away from its piece or crossing (more than PULL squares), or
+       dragged at all with snapping off, it lets go and lands like a free point. The arrow keys never
+       pull it off (`loose` is 'slide' for them). */
+    const pulled = (me && me.hold && heldAt(doc, me) && loose !== 'slide') ? (() => {
+      if (loose) return true;
+      if (me.hold.cross) return dist(M, me) > PULL;
+      const k = piece(doc, me.hold.on), A = point(doc, k.a), B = point(doc, k.b), L = dist(A, B);
+      let s = ((M.x - A.x) * (B.x - A.x) + (M.y - A.y) * (B.y - A.y)) / L;
+      if (k.kind === 'segment') s = clamp(s, 0, L); else if (k.kind === 'ray') s = Math.max(0, s);
+      return dist(M, { x: A.x + s * (B.x - A.x) / L, y: A.y + s * (B.y - A.y) / L }) > PULL;
+    })() : false;
+    if (me && me.hold && heldAt(doc, me) && !pulled) {
+      if (me.hold.cross) return { x: me.x, y: me.y, hold: me.hold };
+      const k = piece(doc, me.hold.on), A = point(doc, k.a), B = point(doc, k.b), L = dist(A, B);
+      let s = ((M.x - A.x) * (B.x - A.x) + (M.y - A.y) * (B.y - A.y)) / L;
+      if (k.kind === 'segment') s = clamp(s, 0, L); else if (k.kind === 'ray') s = Math.max(0, s);
+      if (!loose) s = Math.abs(s - L / 2) < 0.3 ? L / 2 : Math.round(s * 2) / 2;                 // the midpoint, or half-square steps
+      if (k.kind === 'segment') s = clamp(s, 0, L);
+      const P = { x: A.x + s * (B.x - A.x) / L, y: A.y + s * (B.y - A.y) / L, hold: { on: k.id, t: s / L } };
+      return inGrid(g, P.x, P.y) ? P : { x: me.x, y: me.y, hold: me.hold };
+    }
+    // The end of an arc stays on its circle: it slides around it, a whole degree at a time, so the
+    // arc keeps a measure that is easy to read.
+    const ride = rideOf(doc, not);
+    if (ride) {
+      const C = point(doc, ride.c), r = radius(doc, ride), a = Math.atan2(M.y - C.y, M.x - C.x) * 180 / Math.PI, deg = loose ? a : Math.round(a);
+      // Close to where a piece from outside would be tangent, it takes that exact point instead.
+      const dM = dist(M, C) || 1, onIt = { x: C.x + (M.x - C.x) * r / dM, y: C.y + (M.y - C.y) * r / dM };
+      if (!loose) for (const o of joined(doc, not, from)) for (const T of tangentPoints(doc, ride, point(doc, o))) if (dist(onIt, T) < 0.3 && inGrid(g, T.x, T.y)) return T;
+      const P = { x: C.x + r * Math.cos(deg * Math.PI / 180), y: C.y + r * Math.sin(deg * Math.PI / 180) };
+      return inGrid(g, P.x, P.y) ? P : { x: point(doc, not).x, y: point(doc, not).y };
+    }
+    // With snapping off, a free point lands exactly where it is put: no grid dot, piece or circle pulls it in.
+    if (loose) return G;
+    // A tangent position comes next: it is the hardest spot to hit by eye.
+    const tan = tangentSnap(doc, M, not, from);
+    if (tan && !pointAt(doc, tan.x, tan.y, not)) return tan;
+    // Where two pieces cross, so a point can sit exactly on the crossing.
+    // Only pieces that do not themselves depend on the moving point can hold it.
+    const free = doc.pieces.filter(k => !not || (!dependsOn(doc, k.a, not) && !dependsOn(doc, k.b, not)));
+    for (let i = 0; i < free.length; i++) for (let j = i + 1; j < free.length; j++) {
+      const X = crossing(doc, free[i], free[j]);
+      if (X && dist(M, X) < (tight || 0.45) && inGrid(g, X.x, X.y)) return { x: X.x, y: X.y, hold: { cross: [free[i].id, free[j].id] } };
+    }
+    for (const k of free) {
+      const A = point(doc, k.a), B = point(doc, k.b), L = dist(A, B), u = { x: (B.x - A.x) / L, y: (B.y - A.y) / L };
+      let s = (M.x - A.x) * u.x + (M.y - A.y) * u.y;
+      if (k.kind === 'segment') s = clamp(s, 0, L); else if (k.kind === 'ray') s = Math.max(0, s);
+      const F = { x: A.x + s * u.x, y: A.y + s * u.y };
+      if (dist(M, F) > (tight || 0.35)) continue;
+      // The spot is held on the piece, so it stays on it when the piece's own points move.
+      const held = P => ({ x: P.x, y: P.y, hold: { on: k.id, t: ((P.x - A.x) * u.x + (P.y - A.y) * u.y) / L } });
+      const onLine = Math.abs((G.x - A.x) * u.y - (G.y - A.y) * u.x) < 1e-7;
+      if (onLine && dist(G, M) < 0.75) return held(G);
+      if (Math.abs(s - L / 2) < 0.3) return held({ x: (A.x + B.x) / 2, y: (A.y + B.y) / 2 });
+      let n = Math.round(s);
+      if (k.kind === 'segment') n = clamp(n, 0, Math.floor(L + EPS));
+      const P = { x: A.x + n * u.x, y: A.y + n * u.y };
+      if (inGrid(g, P.x, P.y)) return held(P);
+    }
+    for (const c of doc.circles) {
+      if (c.c === not || c.on === not) continue;
+      const C = point(doc, c.c), r = radius(doc, c), d = dist(M, C);
+      if (d < EPS || Math.abs(d - r) > (tight || 0.4)) continue;
+      if (Math.abs(dist(G, C) - r) < 1e-7) return G;
+      const P = { x: C.x + (M.x - C.x) * r / d, y: C.y + (M.y - C.y) * r / d };
+      if (inGrid(g, P.x, P.y)) return P;
+    }
+    return G;
+  }
+  // The first capital letter no point uses yet; after Z, the point starts without a letter.
+  function nextLetter(doc) {
+    const used = new Set(doc.points.map(p => p.name));
+    for (let c = 65; c <= 90; c++) if (!used.has(String.fromCharCode(c))) return String.fromCharCode(c);
+    return '';
+  }
+  // Which side a point's letter sits on. Left on 'auto', it takes the side with the most room:
+  // the one farthest (by angle) from every piece drawn at that point.
+  function sideOf(doc, p) {
+    if (p.side !== 'auto') return p.side;
+    const dirs = [];
+    for (const k of doc.pieces) {
+      if (k.a !== p.id && k.b !== p.id) {
+        // A piece that passes through the point (like a line the point was placed on) runs both ways from it.
+        const A = point(doc, k.a), B = point(doc, k.b), L = dist(A, B), s = ((p.x - A.x) * (B.x - A.x) + (p.y - A.y) * (B.y - A.y)) / L;
+        const off = Math.abs((p.x - A.x) * (B.y - A.y) - (p.y - A.y) * (B.x - A.x)) / L;
+        const through = off < 1e-6 && (k.kind === 'line' || (k.kind === 'ray' ? s > 1e-6 : s > 1e-6 && s < L - 1e-6));
+        if (through) { const a = Math.atan2(B.y - A.y, B.x - A.x); dirs.push(a, a + Math.PI); }
+        continue;
+      }
+      const o = point(doc, k.a === p.id ? k.b : k.a), a = Math.atan2(o.y - p.y, o.x - p.x);
+      dirs.push(a);
+      // A line runs on past both of its points, and a ray past its second one.
+      if (k.kind === 'line' || (k.kind === 'ray' && k.b === p.id)) dirs.push(a + Math.PI);
+    }
+    // An angle mark at the point fills the middle of its angle with arcs and a label.
+    for (const g of doc.angles) {
+      if (g.v !== p.id) continue;
+      const A = point(doc, g.a), B = point(doc, g.b), ua = Math.atan2(A.y - p.y, A.x - p.x), ub = Math.atan2(B.y - p.y, B.x - p.x);
+      dirs.push(Math.atan2(Math.sin(ua) + Math.sin(ub), Math.cos(ua) + Math.cos(ub)));
+    }
+    let best = 'ne', room = -1;
+    for (const s of ['ne', 'nw', 'se', 'sw', 'n', 's', 'e', 'w']) {
+      const a = Math.atan2(-SIDES[s].d[1], SIDES[s].d[0]);      // the grid's y points up, the screen's down
+      const gap = Math.min(...dirs.map(b => Math.abs(Math.atan2(Math.sin(a - b), Math.cos(a - b)))), Math.PI);
+      if (gap > room + 1e-9) { room = gap; best = s; }
+    }
+    return best;
+  }
+
+  // ---------- Changes. Each returns the new id, true or false; false means nothing changed. ----------
+  // `hold` (from snap) keeps the new point on its piece or crossing.
+  function addPoint(doc, x, y, hold) {
+    if (!inGrid(size(doc), x, y) || pointAt(doc, x, y)) return false;
+    const id = 'p' + doc.next++, p = { id, x, y, name: nextLetter(doc), side: 'auto', dot: true };
+    if (hold) p.hold = hold;
+    doc.points.push(p);
+    return id;
+  }
+  // Two names for the same figure: a segment or line either way round, a ray only endpoint first.
+  const samePiece = (k, kind, a, b) => k.kind === kind && ((k.a === a && k.b === b) || (kind !== 'ray' && k.a === b && k.b === a));
+  /* Where a piece's label sits: 'mid' (beside the middle of its two points), or by the arrowhead past
+     point a or past point b. 'end' (a new line or ray) means the end a textbook would use: a ray's
+     arrow, or a line's right-hand end (its top end when it is nearly upright). A segment's is the middle. */
+  function labelAt(doc, k) {
+    if (k.kind === 'segment' || !k.at || k.at === 'mid') return 'mid';
+    if (k.kind === 'ray') return 'b';
+    if (k.at === 'a' || k.at === 'b') return k.at;
+    const A = point(doc, k.a), B = point(doc, k.b), dx = B.x - A.x, dy = B.y - A.y;
+    return Math.abs(dx) > 0.2 * Math.hypot(dx, dy) ? (dx > 0 ? 'b' : 'a') : (dy > 0 ? 'b' : 'a');
+  }
+  function addPiece(doc, kind, a, b) {
+    if (!KINDS[kind] || a === b || !point(doc, a) || !point(doc, b) || doc.pieces.some(k => samePiece(k, kind, a, b))) return false;
+    const id = 'k' + doc.next++;
+    doc.pieces.push({ id, kind, a, b, ticks: 0, arrows: 0, dashed: false, hl: false, label: '', auto: false, flip: false, at: 'end' });
+    return id;
+  }
+  /* Move a point. Everything that depends on it follows: points held on its pieces, and the ends
+     of arcs on its circle. The move is refused (false, nothing changed) if it or anything that
+     follows would leave the grid or land on another point.
+     `hold`: an object sets a new hold (from snap), null lets the point go free, and leaving it
+     out keeps the hold it has: a point held on a piece slides to the nearest spot on that piece,
+     and a point held at a crossing does not move. */
+  function movePoint(doc, id, x, y, hold) {
+    const p = point(doc, id);
+    if (!p) return false;
+    if (hold === undefined && p.hold && heldAt(doc, p)) {
+      if (p.hold.cross) return false;
+      const k = piece(doc, p.hold.on), A = point(doc, k.a), B = point(doc, k.b), L2 = (B.x - A.x) ** 2 + (B.y - A.y) ** 2;
+      let t = ((x - A.x) * (B.x - A.x) + (y - A.y) * (B.y - A.y)) / L2;
+      if (k.kind === 'segment') t = Math.min(1, Math.max(0, t)); else if (k.kind === 'ray') t = Math.max(0, t);
+      hold = { on: k.id, t }; x = A.x + t * (B.x - A.x); y = A.y + t * (B.y - A.y);
+    }
+    if (!inGrid(size(doc), x, y) || pointAt(doc, x, y, id)) return false;
+    if (Math.abs(p.x - x) < EPS && Math.abs(p.y - y) < EPS) return false;
+    const before = doc.points.map(q => ({ q, x: q.x, y: q.y, hold: q.hold }));
+    const undo = () => { for (const b of before) { b.q.x = b.x; b.q.y = b.y; if (b.hold) b.q.hold = b.hold; else delete b.q.hold; } return false; };
+    if (hold) p.hold = hold; else if (hold === null) delete p.hold;
+    // Moving a circle's center or sizing point carries the ends of its arcs along, each keeping
+    // its direction from the center, so they stay on the circle.
+    const riders = [];
+    for (const c of doc.circles) {
+      if (c.c !== id && c.on !== id) continue;
+      const C = point(doc, c.c);
+      for (const r of doc.arcs) for (const e of r.c === c.id ? [r.a, r.b] : []) {
+        const E = point(doc, e);
+        if (e !== c.c && e !== c.on && !riders.some(q => q.E === E)) riders.push({ E, c, ang: Math.atan2(E.y - C.y, E.x - C.x), x: E.x, y: E.y });
+      }
+    }
+    p.x = x; p.y = y;
+    for (const q of riders) { const C = point(doc, q.c.c), r = radius(doc, q.c); q.E.x = C.x + r * Math.cos(q.ang); q.E.y = C.y + r * Math.sin(q.ang); }
+    settle(doc);
+    return sound(doc) ? true : undo();
+  }
+  // The angle between ray v -> a and ray v -> b, in degrees (0 to 180).
+  function degrees(doc, a, v, b) {
+    const V = point(doc, v), A = point(doc, a), B = point(doc, b);
+    const ux = A.x - V.x, uy = A.y - V.y, wx = B.x - V.x, wy = B.y - V.y;
+    return Math.atan2(Math.abs(ux * wy - uy * wx), ux * wx + uy * wy) * 180 / Math.PI;
+  }
+  const angleDeg = (doc, g) => degrees(doc, g.a, g.v, g.b);
+  // The measure as a teacher would write it: a whole number when it is one, else one decimal.
+  function degText(deg) { const r = Math.round(deg); return (Math.abs(deg - r) < 0.05 ? String(r) : deg.toFixed(1)) + '°'; }
+  // An angle mark at vertex v, between the sides through a and through b. A right angle starts
+  // with its box; any other starts with one arc.
+  function addAngle(doc, a, v, b) {
+    if (new Set([a, v, b]).size < 3 || ![a, v, b].every(id => point(doc, id))) return false;
+    if (degrees(doc, a, v, b) < 1e-6) return false;                       // both sides point the same way: no angle to mark
+    if (doc.angles.some(g => g.v === v && ((g.a === a && g.b === b) || (g.a === b && g.b === a)))) return false;
+    const id = 'g' + doc.next++, right = Math.abs(degrees(doc, a, v, b) - 90) < 1e-6;
+    doc.angles.push({ id, a, v, b, arcs: right ? 0 : 1, right, set: false, hl: false, label: '', auto: false });
+    return id;
+  }
+  // A polygon through the points in order. Its sides are ordinary segments, added where missing.
+  function addPolygon(doc, ids) {
+    if (ids.length < 3 || new Set(ids).size !== ids.length || !ids.every(id => point(doc, id))) return false;
+    const key = l => l.slice().sort().join(',');
+    if (doc.polys.some(y => key(y.pts) === key(ids))) return false;
+    ids.forEach((a, i) => addPiece(doc, 'segment', a, ids[(i + 1) % ids.length]));
+    const id = 'y' + doc.next++;
+    doc.polys.push({ id, pts: ids.slice(), shade: 0 });
+    return id;
+  }
+  // A circle with its center at c, through the point `on`. Moving either point resizes it.
+  function addCircle(doc, c, on) {
+    if (c === on || !point(doc, c) || !point(doc, on) || doc.circles.some(k => k.c === c && k.on === on)) return false;
+    const id = 'c' + doc.next++;
+    doc.circles.push({ id, c, on });
+    return id;
+  }
+  // An arc of a circle between two points that lie on it. It starts as the shorter way round
+  // (`other` picks the longer way), drawn highlighted so it stands out from the circle.
+  function addArc(doc, a, b) {
+    if (a === b || !point(doc, a) || !point(doc, b)) return false;
+    const onIt = (c, id) => Math.abs(dist(point(doc, id), point(doc, c.c)) - radius(doc, c)) < 1e-6;
+    const c = doc.circles.find(k => onIt(k, a) && onIt(k, b));
+    if (!c) return false;
+    // Two points bound two arcs. With one already drawn, a second is the other way round; a third is refused.
+    const twins = doc.arcs.filter(r => r.c === c.id && ((r.a === a && r.b === b) || (r.a === b && r.b === a)));
+    if (twins.length > 1) return false;
+    const id = 'a' + doc.next++, r = { id, c: c.id, a, b, other: false, hl: true, ticks: 0, label: '', auto: false };
+    doc.arcs.push(r);
+    const from = q => ((arcSweep(doc, q).start % 360) + 360) % 360;
+    if (twins.length && Math.abs(from(r) - from(twins[0])) < 1e-6) r.other = true;
+    return id;
+  }
+  /* The arc of circle `c` from point m counterclockwise to point n: the one already drawn there, or
+     a new one. Two points on a circle bound two arcs, and both can be drawn. Returns { id, made },
+     or null when the two points are not both on that circle. With `look`, nothing is drawn: null
+     when the arc is not there yet. */
+  function arcBetween(doc, c, m, n, look) {
+    const k = circle(doc, c), C = k && point(doc, k.c), M = point(doc, m), N = point(doc, n);
+    if (!k || !M || !N || m === n) return null;
+    if (![M, N].every(q => q.id !== k.c && Math.abs(dist(q, C) - radius(doc, k)) < 1e-6)) return null;
+    const turn = q => Math.atan2(q.y - C.y, q.x - C.x) * 180 / Math.PI;
+    const starts = r => Math.abs((((arcSweep(doc, r).start - turn(M)) % 360) + 540) % 360 - 180) < 1e-6;
+    const have = doc.arcs.filter(r => r.c === c && ((r.a === m && r.b === n) || (r.a === n && r.b === m))).find(starts);
+    if (have) return { id: have.id, made: false };
+    if (look) return null;
+    const id = 'a' + doc.next++, r = { id, c, a: m, b: n, other: false, hl: false, ticks: 0, label: '', auto: false };
+    doc.arcs.push(r);
+    if (!starts(r)) r.other = true;
+    return { id, made: true };
+  }
+  // An arc as angles around its center, counterclockwise on the grid: from `start`, through `sweep` degrees.
+  function arcSweep(doc, r) {
+    const C = point(doc, circle(doc, r.c).c), A = point(doc, r.a), B = point(doc, r.b);
+    const a0 = Math.atan2(A.y - C.y, A.x - C.x) * 180 / Math.PI, a1 = Math.atan2(B.y - C.y, B.x - C.x) * 180 / Math.PI;
+    const ccw = ((a1 - a0) % 360 + 360) % 360;                 // a to b, counterclockwise
+    const short = ccw <= 180;                                  // is that the shorter way round?
+    return short !== r.other ? { start: a0, sweep: ccw } : { start: a1, sweep: 360 - ccw };
+  }
+  // An arc's two end points in the order it runs, counterclockwise: [start, end].
+  function arcEnds(doc, r) {
+    const C = point(doc, circle(doc, r.c).c), A = point(doc, r.a), B = point(doc, r.b);
+    const ccw = (((Math.atan2(B.y - C.y, B.x - C.x) - Math.atan2(A.y - C.y, A.x - C.x)) * 180 / Math.PI) % 360 + 360) % 360;
+    return (ccw <= 180) !== r.other ? [r.a, r.b] : [r.b, r.a];
+  }
+  /* How an arc is named: its kind ('minor', 'major' or 'semicircle') and the points that name it.
+     A minor arc is named by its two ends. A major arc or semicircle is named with a third point in
+     the middle, the first lettered point on it going counterclockwise; with no such point drawn,
+     only the two ends are given and `short` says the name is not complete. */
+  function arcName(doc, r) {
+    const s = arcSweep(doc, r), e = arcEnds(doc, r), C = point(doc, circle(doc, r.c).c);
+    const kind = Math.abs(s.sweep - 180) < 1e-6 ? 'semicircle' : s.sweep < 180 ? 'minor' : 'major';
+    if (kind === 'minor') return { kind, pts: e, short: false };
+    const from = q => (((Math.atan2(q.y - C.y, q.x - C.x) * 180 / Math.PI - s.start) % 360) + 360) % 360;
+    const mid = pointsOnCircle(doc, r.c).filter(q => q.name && q.id !== e[0] && q.id !== e[1] && from(q) > 1e-6 && from(q) < s.sweep - 1e-6).sort((m, n) => from(m) - from(n))[0];
+    return mid ? { kind, pts: [e[0], mid.id, e[1]], short: false } : { kind, pts: e, short: true };
+  }
+  // An arc's name in words: "Arc BC", "Major Arc BDC", "Semicircle BDC".
+  function arcLabel(doc, r) {
+    const a = arcName(doc, r), n = pid => (point(doc, pid) || {}).name || '?';
+    return `${a.kind === 'major' ? 'Major Arc' : a.kind === 'semicircle' ? 'Semicircle' : 'Arc'} ${a.pts.map(n).join('')}`;
+  }
+  // The name the arc of circle `c` from point m counterclockwise to point n has, or would have once drawn.
+  function arcLabelBetween(doc, c, m, n) {
+    const r = { c, a: m, b: n, other: false };
+    if (arcEnds(doc, r)[0] !== m) r.other = true;
+    return arcLabel(doc, r);
+  }
+  /* Every point that lies on a piece, in order from its `a` toward its `b`: its own two points,
+     points held on it or at a crossing with it, and any other point that happens to sit on it.
+     A segment stops at its ends, a ray at its endpoint; a line runs on both ways. */
+  function pointsOn(doc, id) {
+    const k = piece(doc, id);
+    if (!k) return [];
+    const A = point(doc, k.a), B = point(doc, k.b), L2 = (B.x - A.x) ** 2 + (B.y - A.y) ** 2;
+    const t = q => ((q.x - A.x) * (B.x - A.x) + (q.y - A.y) * (B.y - A.y)) / L2;
+    const off = q => Math.abs((q.x - A.x) * (B.y - A.y) - (q.y - A.y) * (B.x - A.x)) / Math.sqrt(L2);
+    return doc.points.filter(q => q.id === k.a || q.id === k.b || (off(q) < 1e-6 && (k.kind === 'line' || t(q) > -1e-9) && (k.kind !== 'segment' || t(q) < 1 + 1e-9)))
+      .sort((m, n) => t(m) - t(n));
+  }
+  // The parts of a line or ray between neighboring points on it, as pairs of points. A segment has none.
+  function partsOf(doc, id) {
+    const k = piece(doc, id), on = k && k.kind !== 'segment' ? pointsOn(doc, id) : [];
+    return on.slice(1).map((q, i) => [on[i], q]);
+  }
+  // Every point on a circle (not its center), in order counterclockwise from the positive x direction.
+  function pointsOnCircle(doc, id) {
+    const c = circle(doc, id), C = c && point(doc, c.c), r = c && radius(doc, c);
+    const turn = q => (Math.atan2(q.y - C.y, q.x - C.x) * 180 / Math.PI + 360) % 360;
+    return c ? doc.points.filter(q => q.id !== c.c && Math.abs(dist(q, C) - r) < 1e-6).sort((m, n) => turn(m) - turn(n)) : [];
+  }
+  // A segment with no mark, dash, highlight or label that lies along a line or ray: it cannot be told from that line in the picture.
+  function unseen(doc, k) {
+    if (k.kind !== 'segment' || k.ticks || k.arrows || k.dashed || k.hl || k.label) return false;
+    return doc.pieces.some(m => m.kind !== 'segment' && (() => { const ids = pointsOn(doc, m.id).map(q => q.id); return ids.includes(k.a) && ids.includes(k.b); })());
+  }
+  /* Alt text: what a student would see in the picture, in sentences. It names what is drawn, the
+     marks and labels on it, and how the pieces meet (which points are on which lines and circles,
+     and where lines cross). It leaves out what the picture does not show: grid positions, measured
+     values and whether a line is tangent, which would give answers away. */
+  function altText(doc) {
+    const marksOn = doc.marks !== false, nm = id => (point(doc, id) || {}).name || '';
+    const list = a => (a.length < 2 ? a.join('') : a.slice(0, -1).join(', ') + ' and ' + a[a.length - 1]);
+    const count = (k, one) => `${['', 'one', 'two', 'three'][k] || k} ${one}${k === 1 ? '' : 's'}`;
+    const lower = s => s.charAt(0).toLowerCase() + s.slice(1);
+    // A piece by name ("line AC"), or by kind alone when a point has no letter ("a line").
+    const A_KIND = { segment: 'a segment', ray: 'a ray', line: 'a line' };
+    const pieceName = k => (nm(k.a) && nm(k.b) ? `${KINDS[k.kind].toLowerCase()} ${nm(k.a)}${nm(k.b)}` : A_KIND[k.kind]);
+    const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
+    const out = [];
+    const names = doc.points.map(p => p.name).filter(Boolean);
+    if (names.length) out.push(`${names.length === 1 ? 'Point' : 'Points'} ${list(names)}`);
+    // Polygons, by their usual names; their plain sides are not listed again.
+    const sides = new Set();
+    for (const y of doc.polys) {
+      const kind = y.pts.length === 3 ? 'triangle' : y.pts.length === 4 ? 'quadrilateral' : 'polygon', letters = y.pts.map(nm);
+      out.push(`${letters.every(Boolean) ? cap(kind) + ' ' + letters.join('') : 'A ' + kind}${y.shade ? ', shaded' : ''}`);
+      y.pts.forEach((a, i) => { const b = y.pts[(i + 1) % y.pts.length]; doc.pieces.filter(k => k.kind === 'segment' && ((k.a === a && k.b === b) || (k.a === b && k.b === a))).forEach(k => sides.add(k.id)); });
+    }
+    const shown = doc.pieces.filter(k => !unseen(doc, k));
+    for (const k of shown) {
+      const bits = [cap(pieceName(k))];
+      if (k.dashed) bits.push('dashed');
+      if (k.hl) bits.push('highlighted');
+      if (marksOn && k.ticks) bits.push(`marked with ${count(k.ticks, 'tick mark')}`);
+      if (marksOn && k.arrows) bits.push(`marked with ${count(k.arrows, 'arrow mark')}`);
+      if (k.label) bits.push(`labeled ${k.label}`);
+      if (bits.length > 1 || !sides.has(k.id)) out.push(bits.join(', '));
+    }
+    // How the pieces meet: a lettered point strictly inside one piece is "on" it; inside two or more, they cross there.
+    const inside = new Map();
+    for (const k of shown) for (const q of pointsOn(doc, k.id)) if (q.id !== k.a && q.id !== k.b && q.name) inside.set(q.id, (inside.get(q.id) || []).concat(k));
+    const lined = new Set();          // pieces with a lettered point somewhere along them
+    const dir = k => { const A = point(doc, k.a), B = point(doc, k.b); return { x: B.x - A.x, y: B.y - A.y }; };
+    const along = (k, m) => { const u = dir(k), v = dir(m); return Math.abs(u.x * v.y - u.y * v.x) < 1e-6 * Math.hypot(u.x, u.y) * Math.hypot(v.x, v.y); };
+    for (const [pid, all] of inside) {
+      // Of pieces lying along one line through the point, the longest kind speaks for them (line, then ray, then segment).
+      const rank = { line: 0, ray: 1, segment: 2 }, ks = [];
+      for (const k of all.slice().sort((a, b) => rank[a.kind] - rank[b.kind])) if (!ks.some(m => along(k, m))) ks.push(k);
+      if (ks.length > 1) out.push(`${cap(list(ks.map(pieceName)))} cross at point ${nm(pid)}`);
+      ks.forEach(k => lined.add(k.id));
+    }
+    // The order of the points along such a piece tells a student which side of a crossing each point is on.
+    for (const kid of lined) out.push(`On ${pieceName(piece(doc, kid))}, the points in order are ${list(pointsOn(doc, kid).map(q => q.name).filter(Boolean))}`);
+    for (const c of doc.circles) {
+      const center = nm(c.c) ? `with center ${nm(c.c)}` : '', ps = pointsOnCircle(doc, c.id).map(q => q.name).filter(Boolean);
+      const where = ps.length ? `${ps.length > 2 ? 'Going counterclockwise, points' : ps.length === 1 ? 'Point' : 'Points'} ${list(ps)} ${ps.length === 1 ? 'is' : 'are'} on ` : '';
+      if (!c.hide) { out.push(`A circle ${center}`.trim()); if (where) out.push(`${where}the circle`); }
+      for (const a of doc.arcs.filter(q => q.c === c.id)) {
+        const e = arcEnds(doc, a), named = nm(e[0]) && nm(e[1]);
+        const bits = [(named ? describe(doc, a.id).replace('Major Arc', 'Major arc') : arcSweep(doc, a).sweep > 180 + 1e-6 ? 'A major arc' : 'An arc') + (named ? ` going counterclockwise from ${nm(e[0])} to ${nm(e[1])}` : '') + (c.hide ? `, part of a circle ${center}`.trimEnd() : '')];
+        if (a.hl && !c.hide) bits.push('highlighted');
+        if (marksOn && a.ticks) bits.push(`marked with ${count(a.ticks, 'tick mark')}`);
+        if (a.label) bits.push(`labeled ${a.label}`);
+        if (a.hl || a.label || (marksOn && a.ticks) || c.hide) out.push(bits.join(', '));
+      }
+    }
+    for (const g of doc.angles) {
+      const bits = [nm(g.a) && nm(g.v) && nm(g.b) ? describe(doc, g.id) : 'An angle'];
+      if (marksOn && g.right) bits.push('marked with a right-angle box'); else if (marksOn && g.arcs) bits.push(`marked with ${count(g.arcs, 'arc')}`);
+      if (g.hl) bits.push('highlighted');
+      if (g.label) bits.push(`labeled ${g.label}`);
+      if (bits.length > 1) out.push(bits.join(', '));
+    }
+    for (const t of doc.texts) if (t.text) out.push(`A label reads: ${t.text}`);
+    const note = scaleNote(doc);
+    if (note) out.push(`A note reads: ${note}`);
+    return out.length ? 'A geometry diagram. ' + out.map(s => s + '.').join(' ') : '';
+  }
+  // A length as a teacher would write it: whole when it is whole, else one decimal.
+  function lenText(v) { const r = Math.round(v); return Math.abs(v - r) < 0.005 ? String(r) : v.toFixed(1); }
+  // What the drawing itself measures: a segment's length in grid squares, an angle's or an arc's degrees.
+  function measured(doc, id) {
+    const o = item(doc, id);
+    switch (typeOf(doc, id)) {
+      case 'piece': return lenText(dist(point(doc, o.a), point(doc, o.b)));
+      case 'angle': return degText(angleDeg(doc, o));
+      case 'arc': return degText(arcSweep(doc, o).sweep);
+      default: return '';
+    }
+  }
+  // A label set with Use Measured Value follows the drawing (auto): whenever a point moves, the
+  // label is rewritten from the new measure, so it can never show a measure that is no longer true.
+  function refresh(doc) {
+    for (const o of doc.pieces.concat(doc.angles, doc.arcs)) if (o.auto) o.label = measured(doc, o.id);
+    /* An angle mark the teacher has not chosen (set) follows the drawing: a box exactly when the
+       angle is a right angle, and arcs otherwise. Angles of the same measure get the same number
+       of arcs and different measures get different numbers (one arc for the first measure met,
+       two for the next, and so on up to five; none after that), so matching arcs never claim
+       angles are congruent when they are not. */
+    const classes = [];
+    for (const g of doc.angles) {
+      if (g.set) continue;
+      const deg = angleDeg(doc, g);
+      g.right = Math.abs(deg - 90) < 1e-4;
+      if (g.right) { g.arcs = 0; continue; }
+      let i = classes.findIndex(d => Math.abs(d - deg) < 1e-4);
+      if (i < 0) i = classes.push(deg) - 1;
+      g.arcs = i < 5 ? i + 1 : 0;              // past five different measures there are no more arc counts, so no arc: never a false match
+    }
+  }
+
+  /* ---------- Does the drawing still match what it says? ----------
+     Each mismatch is one sentence for the teacher. They are what makes a picture "not drawn to
+     scale": marks or labels that claim something the drawing itself does not show.
+     - matching arrows on pieces that are not parallel;
+     - matching tick marks on segments (or arcs) of different size;
+     - a right-angle box, or matching arcs, chosen by the teacher on angles that do not measure so;
+     - a number label on an angle or arc that is not its measure;
+     - number labels on segments that are not in proportion to their drawn lengths (a figure from
+       measures is drawn larger to fit, so only the proportions are compared);
+     - a piece that was drawn tangent to a circle and no longer is. */
+  function mismatches(doc) {
+    const out = [], name = o => describe(doc, o.id);
+    const num = s => { const m = /^\s*(\d+(?:\.\d+)?)\s*°?\s*$/.exec(s || ''); return m ? parseFloat(m[1]) : null; };
+    const dir = k => { const A = point(doc, k.a), B = point(doc, k.b), L = dist(A, B); return { x: (B.x - A.x) / L, y: (B.y - A.y) / L, L }; };
+    for (const n of [1, 2, 3, 4, 5]) {
+      const par = doc.pieces.filter(k => k.arrows === n);
+      for (const k of par.slice(1)) { const u = dir(par[0]), w = dir(k); if (Math.abs(u.x * w.y - u.y * w.x) > 1e-6) out.push(`${name(par[0])} and ${name(k)} have matching arrows but are not parallel.`); }
+      const tick = doc.pieces.filter(k => k.ticks === n);
+      for (const k of tick.slice(1)) if (Math.abs(dir(k).L - dir(tick[0]).L) > 1e-4 * Math.max(1, dir(tick[0]).L)) out.push(`${name(tick[0])} and ${name(k)} have matching tick marks but different lengths.`);
+      const arcs = doc.arcs.filter(r => r.ticks === n);
+      for (const r of arcs.slice(1)) if (Math.abs(arcSweep(doc, r).sweep - arcSweep(doc, arcs[0]).sweep) > 0.05) out.push(`${name(arcs[0])} and ${name(r)} have matching tick marks but different measures.`);
+      // Every angle showing n arcs, chosen or automatic: automatic ones only share a count when they are equal.
+      const ang = doc.angles.filter(g => !g.right && g.arcs === n);
+      for (const g of ang.slice(1)) if (Math.abs(angleDeg(doc, g) - angleDeg(doc, ang[0])) > 0.05) out.push(`${name(ang[0])} and ${name(g)} have matching arcs but different measures.`);
+    }
+    for (const g of doc.angles) {
+      const deg = angleDeg(doc, g), n = num(g.label);
+      if (g.set && g.right && Math.abs(deg - 90) > 1e-4) out.push(`${name(g)} has a right-angle box but measures ${degText(deg)}.`);
+      if (n !== null && Math.abs(n - deg) > 0.5) out.push(`${name(g)} is labeled ${g.label.trim()} but measures ${degText(deg)}.`);
+    }
+    for (const r of doc.arcs) {
+      const deg = arcSweep(doc, r).sweep, n = num(r.label);
+      if (n !== null && Math.abs(n - deg) > 0.5) out.push(`${name(r)} is labeled ${r.label.trim()} but measures ${degText(deg)}.`);
+    }
+    const sized = doc.pieces.filter(k => k.kind === 'segment' && num(k.label) > 0);
+    for (const k of sized.slice(1)) {
+      const want = num(k.label) / num(sized[0].label), got = dir(k).L / dir(sized[0]).L;
+      if (Math.abs(want - got) > 0.01 * Math.max(want, got)) out.push(`${name(sized[0])} is labeled ${sized[0].label.trim()} and ${name(k)} is labeled ${k.label.trim()}, but they are not drawn in that proportion.`);
+    }
+    for (const k of doc.pieces) {
+      const c = k.tan && circle(doc, k.tan);
+      if (c && tangentTo(doc, k.id) !== c) out.push(`${name(k)} was drawn tangent to ${name(c)} and is no longer tangent.`);
+    }
+    return out;
+  }
+  // The note the picture carries about scale ('' for none).
+  function scaleNote(doc) {
+    const mode = own(SCALES, doc.scale) ? doc.scale : 'auto';
+    if (mode === 'none') return '';
+    if (mode === 'yes') return 'Drawn to scale';
+    return mode === 'not' || mismatches(doc).length ? 'Not drawn to scale' : '';
+  }
+  // Where two pieces cross, or null when they are parallel or miss each other.
+  function crossing(doc, k, m) {
+    const A = point(doc, k.a), B = point(doc, k.b), C = point(doc, m.a), D = point(doc, m.b);
+    const rx = B.x - A.x, ry = B.y - A.y, sx = D.x - C.x, sy = D.y - C.y, den = rx * sy - ry * sx;
+    if (Math.abs(den) < 1e-9) return null;
+    const t = ((C.x - A.x) * sy - (C.y - A.y) * sx) / den, u = ((C.x - A.x) * ry - (C.y - A.y) * rx) / den;
+    const within = (kind, v) => kind === 'line' || (kind === 'ray' ? v >= -EPS : v >= -EPS && v <= 1 + EPS);
+    return within(k.kind, t) && within(m.kind, u) ? { x: A.x + t * rx, y: A.y + t * ry } : null;
+  }
+
+  // A free label. It can sit anywhere on the grid, on half squares.
+  const half = v => Math.round(v * 2) / 2;
+  function addText(doc, x, y, str) {
+    const g = size(doc);
+    const id = 't' + doc.next++;
+    doc.texts.push({ id, x: Math.min(g.w - 0.5, Math.max(0.5, half(x))), y: Math.min(g.h - 0.5, Math.max(0.5, half(y))), text: str });
+    return id;
+  }
+  // Tilt a free label: degrees counterclockwise from level, kept between -180 and 180. Level labels carry no tilt.
+  function tiltText(doc, id, deg) {
+    const t = text(doc, id);
+    if (!t || typeof deg !== 'number' || !isFinite(deg)) return false;
+    const d = Math.round((((deg + 180) % 360 + 360) % 360 - 180) * 10) / 10;
+    if (d === 0) delete t.tilt; else t.tilt = d;
+    return true;
+  }
+  function moveText(doc, id, x, y) {
+    const t = text(doc, id), g = size(doc);
+    const nx = Math.min(g.w - 0.5, Math.max(0.5, half(x))), ny = Math.min(g.h - 0.5, Math.max(0.5, half(y)));
+    if (!t || (t.x === nx && t.y === ny)) return false;
+    t.x = nx; t.y = ny;
+    return true;
+  }
+  // Deleting a point also deletes everything drawn from it. Deleting a polygon keeps its sides.
+  function remove(doc, id) {
+    const type = typeOf(doc, id);
+    if (!type) return false;
+    if (type === 'point') {
+      doc.pieces = doc.pieces.filter(k => k.a !== id && k.b !== id);
+      doc.angles = doc.angles.filter(g => g.a !== id && g.v !== id && g.b !== id);
+      doc.polys = doc.polys.filter(y => !y.pts.includes(id));
+      doc.arcs = doc.arcs.filter(r => r.a !== id && r.b !== id);
+      doc.circles = doc.circles.filter(c => c.c !== id && c.on !== id);
+    }
+    if (type === 'circle' || type === 'point') doc.arcs = doc.arcs.filter(r => r.c !== id && circle(doc, r.c));
+    // A polygon with a side deleted is no longer a closed figure, so it goes too (its other sides stay).
+    if (type === 'piece') {
+      const k = piece(doc, id);
+      const side = y => y.pts.some((p, i) => { const q = y.pts[(i + 1) % y.pts.length]; return (p === k.a && q === k.b) || (p === k.b && q === k.a); });
+      if (k.kind === 'segment') doc.polys = doc.polys.filter(y => !side(y));
+    }
+    const list = type === 'poly' ? 'polys' : type + 's';
+    doc[list] = doc[list].filter(o => o.id !== id);
+    settle(doc);                          // points held on a deleted piece are let go, where they are
+    return true;
+  }
+  function setKind(doc, id, kind) {
+    const k = piece(doc, id);
+    if (!k || !KINDS[kind] || k.kind === kind || doc.pieces.some(o => o !== k && samePiece(o, kind, k.a, k.b))) return false;
+    k.kind = kind;
+    return true;
+  }
+  // A ray starts from its other point instead.
+  function swapEnds(doc, id) {
+    const k = piece(doc, id);
+    if (!k || doc.pieces.some(o => o !== k && samePiece(o, k.kind, k.b, k.a))) return false;
+    [k.a, k.b] = [k.b, k.a];
+    return true;
+  }
+  // A smaller grid is allowed only when every point and label still fits on it.
+  function setGrid(doc, grid) {
+    const g = GRIDS[grid];
+    if (!g || grid === doc.grid || !doc.points.every(p => inGrid(g, p.x, p.y)) || !doc.texts.every(t => t.x <= g.w - 0.5 && t.y <= g.h - 0.5)) return false;
+    if (!doc.circles.every(c => { const C = point(doc, c.c), r = radius(doc, c); return C.x - r >= 0 && C.y - r >= 0 && C.x + r <= g.w && C.y + r <= g.h; })) return false;
+    doc.grid = grid;
+    return true;
+  }
+  // The box around everything drawn, or null for an empty diagram.
+  function bounds(doc, seen, half) {
+    const xs = [], ys = [];
+    for (const p of doc.points) { xs.push(p.x); ys.push(p.y); }
+    for (const t of doc.texts) {
+      xs.push(t.x); ys.push(t.y);
+      if (!half || !t.text) continue;
+      // The label's box, turned by its tilt: how far it reaches across and up from its middle.
+      const h = half(t), a = (t.tilt || 0) * Math.PI / 180, dx = Math.abs(h.w * Math.cos(a)) + Math.abs(h.h * Math.sin(a)), dy = Math.abs(h.w * Math.sin(a)) + Math.abs(h.h * Math.cos(a));
+      xs.push(t.x - dx, t.x + dx); ys.push(t.y - dy, t.y + dy);
+    }
+    for (const c of doc.circles) {
+      const C = point(doc, c.c), r = radius(doc, c);
+      if (!(seen && c.hide)) { xs.push(C.x - r, C.x + r); ys.push(C.y - r, C.y + r); continue; }
+      // A circle showing only its arcs takes up only the room its arcs do.
+      for (const a of doc.arcs.filter(q => q.c === c.id)) {
+        const s = arcSweep(doc, a);
+        for (let d = 0; d <= s.sweep; d += 5) { const t = (s.start + d) * Math.PI / 180; xs.push(C.x + r * Math.cos(t)); ys.push(C.y + r * Math.sin(t)); }
+      }
+    }
+    if (!xs.length) return null;
+    return { x0: Math.min(...xs), y0: Math.min(...ys), x1: Math.max(...xs), y1: Math.max(...ys) };
+  }
+  // What a screen reader hears for a thing, and what the Selected panel calls it.
+  function describe(doc, id) {
+    const n = pid => (point(doc, pid) || {}).name || '?';
+    const o = item(doc, id);
+    switch (typeOf(doc, id)) {
+      case 'point': return `Point ${o.name || '(no letter)'}`;
+      case 'piece': return `${KINDS[o.kind]} ${n(o.a)}${n(o.b)}`;
+      case 'angle': return `Angle ${n(o.a)}${n(o.v)}${n(o.b)}`;
+      case 'poly': return `Polygon ${o.pts.map(n).join('')}`;
+      case 'circle': return `Circle ${n(o.c)}`;
+      // An arc is named from its start to its end going counterclockwise, so the two arcs between
+      // the same two points get different names; the longer one is called a major arc.
+      // As G.I.N. teaches: two letters name a minor arc; a major arc or a semicircle takes a third letter, a point on it, in the middle.
+      case 'arc': return arcLabel(doc, o);
+      case 'text': return `Label ${o.text || '(empty)'}`;
+      default: return '';
+    }
+  }
+
+  /* A diagram read back from a saved picture. The data comes from a file, so nothing in it is
+     trusted: every id, number and reference is checked, and anything unexpected means the whole
+     file is refused (null). */
+  function restore(data) {
+    try {
+      if (!data || data.v !== 1 || !own(GRIDS, data.grid)) return null;
+      const doc = create(data.grid), g = GRIDS[data.grid], seen = new Set();
+      let max = 0;
+      const num = v => typeof v === 'number' && isFinite(v), cnt = v => ([1, 2, 3].includes(v) ? v : 0), cnt5 = v => ([1, 2, 3, 4, 5].includes(v) ? v : 0);
+      const str = (v, n) => (typeof v === 'string' ? v.slice(0, n) : '');
+      const list = v => { if (v === undefined) return []; if (!Array.isArray(v) || v.length > 500) throw new Error('list'); return v; };
+      const take = (id, letter) => {
+        if (typeof id !== 'string' || !new RegExp('^' + letter + '[0-9]{1,6}$').test(id) || seen.has(id)) throw new Error('id');
+        seen.add(id); max = Math.max(max, +id.slice(1));
+        return id;
+      };
+      const pt = id => { if (!point(doc, id)) throw new Error('point'); return id; };
+      for (const p of list(data.points)) {
+        if (!num(p.x) || !num(p.y) || !inGrid(g, p.x, p.y)) throw new Error('place');
+        if (pointAt(doc, p.x, p.y)) throw new Error('same place');
+        doc.points.push({ id: take(p.id, 'p'), x: p.x, y: p.y, name: str(p.name, 3), side: own(SIDES, p.side) ? p.side : 'auto', dot: p.dot !== false });
+      }
+      for (const k of list(data.pieces)) {
+        if (!own(KINDS, k.kind) || k.a === k.b) throw new Error('piece');
+        doc.pieces.push({ id: take(k.id, 'k'), kind: k.kind, a: pt(k.a), b: pt(k.b), ticks: cnt(k.ticks), arrows: cnt(k.arrows), dashed: !!k.dashed, hl: !!k.hl, label: str(k.label, 60), auto: !!k.auto, flip: !!k.flip, at: ['a', 'b', 'end'].includes(k.at) ? k.at : 'mid' });
+      }
+      // Holds name pieces, so they are read once the pieces are in. A hold that makes no sense is dropped.
+      for (const p of list(data.points)) {
+        const h = p.hold, me = point(doc, p.id), ok = id => typeof id === 'string' && piece(doc, id);
+        if (!h || typeof h !== 'object') continue;
+        if (ok(h.on) && num(h.t)) me.hold = { on: h.on, t: h.t };
+        else if (Array.isArray(h.cross) && h.cross.length === 2 && h.cross[0] !== h.cross[1] && ok(h.cross[0]) && ok(h.cross[1])) me.hold = { cross: [h.cross[0], h.cross[1]] };
+      }
+      // A hold on a piece that itself depends on the held point is a loop: it is dropped.
+      for (const p of doc.points) {
+        if (p.hold && (p.hold.on ? [p.hold.on] : p.hold.cross).some(kid => { const k = piece(doc, kid); return dependsOn(doc, k.a, p.id) || dependsOn(doc, k.b, p.id); })) delete p.hold;
+      }
+      for (const a of list(data.angles)) {
+        if (new Set([a.a, a.v, a.b]).size < 3) throw new Error('angle');
+        doc.angles.push({ id: take(a.id, 'g'), a: pt(a.a), v: pt(a.v), b: pt(a.b), arcs: cnt5(a.arcs), right: !!a.right, set: !!a.set, hl: !!a.hl, label: str(a.label, 60), auto: !!a.auto });
+      }
+      for (const y of list(data.polys)) {
+        if (!Array.isArray(y.pts) || y.pts.length < 3 || y.pts.length > 50 || new Set(y.pts).size !== y.pts.length) throw new Error('polygon');
+        // Older pictures saved the shade as yes or no; yes is the first shade.
+        doc.polys.push({ id: take(y.id, 'y'), pts: y.pts.map(pt), shade: y.shade === true ? 1 : [1, 2, 3, 4].includes(y.shade) ? y.shade : 0 });
+      }
+      for (const c of list(data.circles)) {
+        if (c.c === c.on) throw new Error('circle');
+        doc.circles.push(Object.assign({ id: take(c.id, 'c'), c: pt(c.c), on: pt(c.on) }, c.hide === true ? { hide: true } : {}));
+      }
+      for (const r of list(data.arcs)) {
+        if (!circle(doc, r.c) || r.a === r.b) throw new Error('arc');
+        doc.arcs.push({ id: take(r.id, 'a'), c: r.c, a: pt(r.a), b: pt(r.b), other: !!r.other, hl: !!r.hl, ticks: cnt(r.ticks), label: str(r.label, 60), auto: !!r.auto });
+      }
+      for (const t of list(data.texts)) {
+        if (!num(t.x) || !num(t.y) || t.x < 0 || t.y < 0 || t.x > g.w || t.y > g.h) throw new Error('label');
+        doc.texts.push(Object.assign({ id: take(t.id, 't'), x: t.x, y: t.y, text: str(t.text, 80) }, num(t.tilt) && t.tilt !== 0 && Math.abs(t.tilt) <= 180 ? { tilt: t.tilt } : {}));
+      }
+      for (const k of list(data.pieces)) if (typeof k.tan === 'string' && circle(doc, k.tan)) piece(doc, k.id).tan = k.tan;
+      doc.marks = data.marks !== false;
+      doc.scale = own(SCALES, data.scale) ? data.scale : 'auto';
+      doc.next = max + 1;
+      // The file must describe a drawing that can be shown: held points in place, everything on the grid.
+      settle(doc);
+      if (!sound(doc)) return null;
+      return doc;
+    } catch (e) { return null; }
+  }
+
+  // Undo and redo: a copy of the diagram is kept before every change.
+  function history() {
+    const past = [], future = [];
+    return {
+      save(doc) { past.push(JSON.stringify(doc)); future.length = 0; if (past.length > 200) past.shift(); },
+      undo(doc) { if (!past.length) return null; future.push(JSON.stringify(doc)); return JSON.parse(past.pop()); },
+      redo(doc) { if (!future.length) return null; past.push(JSON.stringify(doc)); return JSON.parse(future.pop()); },
+      // A change that turned out to do nothing takes its saved copy back.
+      drop() { past.pop(); },
+      get canUndo() { return past.length > 0; },
+      get canRedo() { return future.length > 0; },
+    };
+  }
+
+  return { GRIDS, SIDES, KINDS, SHADES, SCALES, settle, sound, holdText, dependsOn, moveMany, mismatches, scaleNote, create, size, point, piece, angle, poly, circle, arc, text, item, typeOf, crossing, arcSweep, arcEnds, arcName, arcLabelBetween, pointsOn, partsOf, pointsOnCircle, altText, pointAt, radius, rideOf, tangentPoints, tangentTo, snap, nextLetter, sideOf,
+    addPoint, addPiece, labelAt, movePoint, angleDeg, degText, addAngle, addPolygon, addCircle, addArc, arcBetween, addText, tiltText, moveText, remove, setKind, swapEnds, setGrid, bounds, describe, restore, lenText, measured, refresh, history };
+})();
+
+/* The tools that do the computer work: the teacher types the measure they want, and the drawing is
+   reshaped to match. No DOM here, so every tool can be tested.
+   Each tool changes the diagram and returns true, or returns { error } (a sentence for the
+   teacher) and changes nothing. */
+const Solve = (() => {
+  'use strict';
+  const RAD = Math.PI / 180;
+  const OFF = 'That would go off the grid. Try Fit to Frame, or pick a bigger Grid Size.';
+  const fits = (doc, x, y) => { const g = Model.size(doc); return x >= 1 - 1e-7 && x <= g.w - 1 + 1e-7 && y >= 1 - 1e-7 && y <= g.h - 1 + 1e-7; };
+  // A typed measure as a number: "40", "40°" and " 7.5 " all work; anything else is not a number.
+  function number(str) {
+    const s = String(str).replace(/[°\s]/g, '').replace(',', '.');
+    return /^\d*\.?\d+$/.test(s) ? parseFloat(s) : NaN;
+  }
+  // A typed tilt: like number(), but it may be negative ("-30", or with a true minus sign) and may end in "degrees".
+  function tilt(str) {
+    const s = String(str).replace(/degrees?|deg|[\u00b0\s]/gi, '').replace('\u2212', '-').replace(',', '.');
+    return /^-?\d*\.?\d+$/.test(s) ? parseFloat(s) : NaN;
+  }
+  // How much is drawn from a point: the point with less attached is the one a tool moves by default.
+  function attached(doc, id) {
+    return doc.pieces.filter(k => k.a === id || k.b === id).length + doc.angles.filter(g => g.a === id || g.v === id || g.b === id).length +
+      doc.circles.filter(c => c.c === id || c.on === id).length + doc.polys.filter(y => y.pts.includes(id)).length;
+  }
+  const lighter = (doc, a, b) => (attached(doc, a) < attached(doc, b) ? a : b);
+
+  // Keep a copy of where every point is, to put the drawing back if a tool cannot finish.
+  const keep = doc => { const was = JSON.stringify(doc.points); return () => { doc.points = JSON.parse(was); }; };
+  // A point that is held on a piece or at a crossing cannot be moved off it by a tool.
+  const stuck = (doc, p) => ({ error: `${Model.describe(doc, p.id)} is fixed ${Model.holdText(doc, p)}, so it can’t be moved that way. Choose the other point under By Moving, or select ${Model.describe(doc, p.id)} and choose Let It Move Freely.` });
+
+  /* ---------- Make This Angle: turn one side around the vertex until the angle measures `deg` ----------
+     When the side being turned is part of a line that runs through the vertex (a transversal
+     through its crossing point, say), the whole line turns about the vertex, so the vertex stays
+     on it and every point held on that line follows. Otherwise only the one point moves. */
+  function setAngle(doc, id, deg, moveId) {
+    const g = Model.angle(doc, id);
+    if (!g) return { error: 'Select an angle mark first.' };
+    if (!(deg > 0 && deg <= 180)) return { error: 'Type a measure greater than 0, up to 180.' };
+    const now = Model.angleDeg(doc, g);
+    if (Math.abs(now - deg) < 1e-6) return true;                     // it already measures that
+    const mv = moveId === g.a || moveId === g.b ? moveId : lighter(doc, g.b, g.a), fixed = mv === g.a ? g.b : g.a;
+    const V = Model.point(doc, g.v), F = Model.point(doc, fixed), M = Model.point(doc, mv);
+    // The moving side stays on the same side of the fixed one as it is now.
+    const turn = (F.x - V.x) * (M.y - V.y) - (F.y - V.y) * (M.x - V.x) >= 0 ? 1 : -1, by = turn * (deg - now) * RAD;
+    const through = k => { const A = Model.point(doc, k.a), B = Model.point(doc, k.b); return Math.abs((V.x - A.x) * (B.y - A.y) - (V.y - A.y) * (B.x - A.x)) / Math.hypot(B.x - A.x, B.y - A.y) < 1e-6; };
+    const line = doc.pieces.find(k => (k.a === mv || k.b === mv) && k.a !== g.v && k.b !== g.v && through(k));
+    const movers = (line ? [line.a, line.b] : [mv]).map(i => Model.point(doc, i));
+    const held = movers.find(p => p.hold);
+    if (held) return stuck(doc, held);
+    const back = keep(doc), cs = Math.cos(by), sn = Math.sin(by), v = { x: V.x, y: V.y };
+    if (!line) {
+      const x = v.x + (M.x - v.x) * cs - (M.y - v.y) * sn, y = v.y + (M.x - v.x) * sn + (M.y - v.y) * cs;
+      if (Model.pointAt(doc, x, y, mv)) return { error: 'Another point is already there. Move one of them first.' };
+      return Model.movePoint(doc, mv, x, y) ? true : { error: OFF };
+    }
+    // Both of the line's points turn together; arc ends and held points are carried along.
+    return Model.moveMany(doc, movers.map(p => p.id), p => ({ x: v.x + (p.x - v.x) * cs - (p.y - v.y) * sn, y: v.y + (p.x - v.x) * sn + (p.y - v.y) * cs })) ? true : { error: OFF };
+  }
+  // ---------- Make This Side: slide one endpoint along the side until it is `len` units long ----------
+  function setLength(doc, id, len, moveId) {
+    const k = Model.piece(doc, id);
+    if (!k) return { error: 'Select a segment first.' };
+    if (!(len > 0)) return { error: 'Type a length greater than 0.' };
+    const mv = moveId === k.a || moveId === k.b ? moveId : lighter(doc, k.b, k.a), fixed = mv === k.a ? k.b : k.a;
+    const F = Model.point(doc, fixed), M = Model.point(doc, mv), d = Math.hypot(M.x - F.x, M.y - F.y);
+    if (Math.abs(d - len) < 1e-6) return true;                       // it is already that long
+    const x = F.x + (M.x - F.x) * len / d, y = F.y + (M.y - F.y) * len / d;
+    if (!fits(doc, x, y)) return { error: OFF };
+    if (Model.pointAt(doc, x, y, mv)) return { error: 'Another point is already there. Move one of them first.' };
+    const back = keep(doc), ok = Model.movePoint(doc, mv, x, y);
+    // A held point only slides along its own piece; if that did not give the length, nothing changes.
+    if (ok && Math.abs(length(doc, k) - len) > 1e-6) { back(); return stuck(doc, Model.point(doc, mv)); }
+    return ok ? true : (M.hold ? stuck(doc, M) : { error: OFF });
+  }
+  const length = (doc, k) => { const A = Model.point(doc, k.a), B = Model.point(doc, k.b); return Math.hypot(B.x - A.x, B.y - A.y); };
+  // A length as a teacher would write it: whole when it is whole, else one decimal.
+  const lenText = Model.lenText;
+
+  /* ---------- Triangle from Measures ----------
+     Sides a, b, c are across from angles A, B, C. Give any three measures, at least one a side
+     (m = { a, b, c, A, B, C }, missing ones left out). Returns { triangles: [{a,b,c,A,B,C}] } with
+     one triangle, or two when two sides and an angle not between them fit two triangles;
+     or { error }. */
+  function triangle(m) {
+    const S = ['a', 'b', 'c'], G = ['A', 'B', 'C'], have = k => typeof m[k] === 'number' && !isNaN(m[k]);
+    const sides = S.filter(have), angs = G.filter(have);
+    if (sides.concat(angs).some(k => !(m[k] > 0))) return { error: 'Every measure must be greater than 0.' };
+    if (sides.length + angs.length !== 3) return { error: 'Fill in exactly three measures.' };
+    if (!sides.length) return { error: 'Three angles give the shape but not the size. Give at least one side.' };
+    if (angs.some(k => m[k] >= 180)) return { error: 'An angle of a triangle is less than 180°.' };
+    const sin = d => Math.sin(d * RAD), acos = v => Math.acos(Math.min(1, Math.max(-1, v))) / RAD;
+    const t = Object.assign({}, m);
+    const fromSides = () => { t.A = acos((t.b * t.b + t.c * t.c - t.a * t.a) / (2 * t.b * t.c)); t.B = acos((t.a * t.a + t.c * t.c - t.b * t.b) / (2 * t.a * t.c)); t.C = 180 - t.A - t.B; };
+    if (sides.length === 3) {
+      const [x, y, z] = [t.a, t.b, t.c].sort((p, q) => p - q);
+      if (x + y <= z + 1e-9) return { error: 'Those sides can’t make a triangle: the two shorter sides together must be longer than the longest.' };
+      fromSides();
+      return { triangles: [t] };
+    }
+    if (angs.length === 2) {
+      const third = G.find(k => !have(k));
+      t[third] = 180 - t[angs[0]] - t[angs[1]];
+      if (!(t[third] > 1e-9)) return { error: 'Those two angles already add to 180° or more, so there is no third angle.' };
+      const s = sides[0], ratio = t[s] / sin(t[s.toUpperCase()]);       // law of sines
+      for (const k of S) t[k] = ratio * sin(t[k.toUpperCase()]);
+      return { triangles: [t] };
+    }
+    // Two sides and one angle.
+    const ang = angs[0], across = ang.toLowerCase();
+    if (!sides.includes(across)) {
+      // The angle is between the two sides: one triangle, by the law of cosines.
+      const [p, q] = sides;
+      t[across] = Math.sqrt(t[p] * t[p] + t[q] * t[q] - 2 * t[p] * t[q] * Math.cos(t[ang] * RAD));
+      fromSides();
+      t[ang] = m[ang];
+      return { triangles: [t] };
+    }
+    // The angle is across from one of the sides: none, one or two triangles (law of sines).
+    const other = sides.find(k => k !== across), last = S.find(k => !sides.includes(k));
+    const s = t[other] * sin(t[ang]) / t[across];
+    if (s > 1 + 1e-9) return { error: `No triangle fits: side ${across} is too short to reach.` };
+    const first = Math.asin(Math.min(1, s)) / RAD, out = [];
+    for (const O of [first, 180 - first]) {
+      const L = 180 - t[ang] - O;
+      if (L <= 1e-9 || out.some(u => Math.abs(u[other.toUpperCase()] - O) < 1e-7)) continue;
+      const u = Object.assign({}, t);
+      u[other.toUpperCase()] = O; u[last.toUpperCase()] = L;
+      u[last] = t[across] * sin(L) / sin(t[ang]);
+      out.push(u);
+    }
+    return out.length ? { triangles: out } : { error: 'No triangle fits those measures.' };
+  }
+  /* Draw a solved triangle on the diagram: three new points, its sides, and a mark and label for
+     each measure the teacher typed (`given` lists those keys). It is drawn as big as fits well,
+     so the labels carry the numbers and the drawing carries the exact shape.
+     Returns the new polygon's id. */
+  function drawTriangle(doc, t, given) {
+    const g = Model.size(doc);
+    // A at the left of the base, B at the right, C above: side c is the base.
+    let P = [{ x: 0, y: 0 }, { x: t.c, y: 0 }, { x: t.b * Math.cos(t.A * RAD), y: t.b * Math.sin(t.A * RAD) }];
+    const xs = P.map(p => p.x), ys = P.map(p => p.y), w = Math.max(...xs) - Math.min(...xs), h = Math.max(...ys) - Math.min(...ys);
+    const k = Math.min((g.w - 8) / w, (g.h - 7) / h);
+    const ox = (g.w - w * k) / 2 - Math.min(...xs) * k, oy = (g.h - h * k) / 2 - Math.min(...ys) * k;
+    P = P.map(p => ({ x: p.x * k + ox, y: p.y * k + oy }));
+    if (P.some(p => Model.pointAt(doc, p.x, p.y))) return { error: 'A point is already where the triangle would go. Move it or start over first.' };
+    const ids = P.map(p => Model.addPoint(doc, p.x, p.y));
+    const poly = Model.addPolygon(doc, ids);
+    const side = (p, q) => doc.pieces.find(s => s.kind === 'segment' && ((s.a === p && s.b === q) || (s.a === q && s.b === p)));
+    const SIDES = { a: [1, 2], b: [2, 0], c: [0, 1] }, ANGLES = { A: [1, 0, 2], B: [2, 1, 0], C: [0, 2, 1] };
+    for (const key of given) {
+      if (SIDES[key]) side(ids[SIDES[key][0]], ids[SIDES[key][1]]).label = lenText(t[key]);
+      else { const [p, v, q] = ANGLES[key]; Model.angle(doc, Model.addAngle(doc, ids[p], ids[v], ids[q])).label = Model.degText(t[key]); }
+    }
+    return poly;
+  }
+
+  /* ---------- Angle From a Measure ----------
+     Angle ABC of exactly `deg` degrees: vertex B, one side level, drawn as two rays with a mark.
+     Its label shows the measure and follows the drawing. Returns the angle's id, or { error }. */
+  function drawAngle(doc, deg) {
+    if (!(deg > 0 && deg <= 180)) return { error: 'Type a measure greater than 0, up to 180.' };
+    const g = Model.size(doc), L = Math.min(8, g.h / 2 - 2.5);
+    let P = [{ x: L, y: 0 }, { x: 0, y: 0 }, { x: L * Math.cos(deg * RAD), y: L * Math.sin(deg * RAD) }];
+    const xs = P.map(p => p.x), ys = P.map(p => p.y), ox = (g.w - Math.max(...xs) - Math.min(...xs)) / 2, oy = (g.h - Math.max(...ys) - Math.min(...ys)) / 2;
+    // The vertex sits on a grid dot, so the level side lies along a row of dots.
+    P = P.map(p => ({ x: p.x + Math.round(ox), y: p.y + Math.round(oy) }));
+    if (P.some(p => !fits(doc, p.x, p.y))) return { error: OFF };
+    if (P.some(p => Model.pointAt(doc, p.x, p.y))) return { error: 'A point is already where the angle would go. Move it or start over first.' };
+    const [a, v, b] = P.map(p => Model.addPoint(doc, p.x, p.y));
+    Model.addPiece(doc, 'ray', v, a); Model.addPiece(doc, 'ray', v, b);
+    const id = Model.addAngle(doc, a, v, b);
+    Model.angle(doc, id).auto = true;
+    Model.refresh(doc);
+    return id;
+  }
+  /* ---------- Circle From Measures ----------
+     A circle about A through B, as large as fits well. With `radius`, radius AB is drawn and
+     labeled with that number. With `arc` (degrees, more than 0 and less than 360), a second point
+     C is placed that far around the circle, with radius AC and arc BC highlighted and labeled.
+     Returns the circle's id, or { error }. */
+  function drawCircle(doc, m) {
+    const hasR = typeof m.radius === 'number' && !isNaN(m.radius), hasArc = typeof m.arc === 'number' && !isNaN(m.arc);
+    if (!hasR && !hasArc) return { error: 'Type a radius, an arc measure, or both.' };
+    if (hasR && !(m.radius > 0)) return { error: 'Type a radius greater than 0.' };
+    if (hasArc && !(m.arc > 0 && m.arc < 360)) return { error: 'Type an arc measure greater than 0 and less than 360.' };
+    const g = Model.size(doc), R = Math.min(6, Math.floor(g.h / 2 - 2)), cx = Math.round(g.w / 2), cy = Math.round(g.h / 2);
+    const P = [{ x: cx, y: cy }, { x: cx + R, y: cy }];
+    if (hasArc) P.push({ x: cx + R * Math.cos(m.arc * RAD), y: cy + R * Math.sin(m.arc * RAD) });
+    if (P.some(p => Model.pointAt(doc, p.x, p.y))) return { error: 'A point is already where the circle would go. Move it or start over first.' };
+    const [c, on, end] = P.map(p => Model.addPoint(doc, p.x, p.y));
+    const id = Model.addCircle(doc, c, on);
+    if (hasR || hasArc) { const k = Model.piece(doc, Model.addPiece(doc, 'segment', c, on)); if (hasR) k.label = lenText(m.radius); }
+    if (hasArc) {
+      Model.addPiece(doc, 'segment', c, end);
+      const r = Model.arc(doc, Model.addArc(doc, on, end));
+      r.other = m.arc > 180;                         // more than half way round is the long arc
+      r.auto = true;
+      Model.refresh(doc);
+    }
+    return id;
+  }
+
+  /* ---------- Start With: a common figure dropped in the middle of the grid ----------
+     Everything it adds is an ordinary point or piece the teacher can move, mark and relabel.
+     Returns the id to select, or { error } when the middle of the grid is already in use. */
+  // The corners of a regular polygon about the middle of the grid, with its bottom side level.
+  function regularSpots(g, sides) {
+    const n = Math.round(sides);
+    if (!(n >= 3 && n <= 12)) return null;
+    const R = Math.min(6, g.h / 2 - 2), first = -90 + 180 / n;
+    return Array.from({ length: n }, (v, i) => [R * Math.cos((first + i * 360 / n) * RAD), R * Math.sin((first + i * 360 / n) * RAD)]);
+  }
+  function starter(doc, kind, sides) {
+    const g = Model.size(doc), cx = Math.round(g.w / 2), cy = Math.round(g.h / 2);
+    const SPOTS = {
+      triangle: [[-5, -3], [5, -3], [-1, 4]],
+      quadrilateral: [[-6, -3], [5, -3], [6, 3], [-4, 4]],
+      // Two lines with matching arrows, crossed by a third: A, B, C on the top line, D, E, F on the bottom, G and H on the transversal.
+      // B and E sit off-center, so the arrows at each line's middle stay clear of them and of any angle mark there.
+      transversal: [[-7, 3], [2, 3], [6, 3], [-6, -3], [-1, -3], [8, -3], [3, 5], [-2, -5]],
+      circle: [[0, 0], [4, 0]],
+      // Angle ABC: the vertex B, with A and C on its two sides.
+      angle: [[5, -3], [-5, -3], [2, 4]],
+      // A circle of radius 4 about A, and D five squares from the center: a 3-4-5 right triangle
+      // puts the two tangent points B and C exactly at (3.2, 2.4) and (3.2, -2.4) from the center.
+      tangents: [[-3, 0], [0.2, 2.4], [0.2, -2.4], [2, 0]],
+    }[kind] || (kind === 'regular' ? regularSpots(g, sides) : null);
+    if (!SPOTS) return { error: 'There is no such figure.' };
+    const at = SPOTS.map(([dx, dy]) => ({ x: cx + dx, y: cy + dy }));
+    if (at.some(p => Model.pointAt(doc, p.x, p.y))) return { error: 'There are points in the middle of the grid already. Move them, or choose Start Over first.' };
+    const p = at.map(q => Model.addPoint(doc, q.x, q.y));
+    if (kind === 'circle') return Model.addCircle(doc, p[0], p[1]);
+    if (kind === 'angle') {
+      Model.addPiece(doc, 'ray', p[1], p[0]); Model.addPiece(doc, 'ray', p[1], p[2]);
+      return Model.addAngle(doc, p[0], p[1], p[2]);
+    }
+    if (kind === 'tangents') {
+      // Each tangent line meets its radius at a right angle, marked with a box.
+      const k = Model.addCircle(doc, p[0], p[1]);
+      // Each line is remembered as tangent, so the scale note can say if it later stops being so.
+      for (const t of [p[1], p[2]]) { Model.addPiece(doc, 'segment', p[0], t); Model.piece(doc, Model.addPiece(doc, 'line', p[3], t)).tan = k; Model.addAngle(doc, p[0], t, p[3]); }
+      return k;
+    }
+    if (kind !== 'transversal') return Model.addPolygon(doc, p);
+    const top = Model.addPiece(doc, 'line', p[0], p[2]), bottom = Model.addPiece(doc, 'line', p[3], p[5]);
+    Model.piece(doc, top).arrows = 1; Model.piece(doc, bottom).arrows = 1;
+    const across = Model.addPiece(doc, 'line', p[6], p[7]);
+    // B and E are held where the transversal crosses each line, so they stay there however the lines are moved.
+    Model.point(doc, p[1]).hold = { cross: [top, across] };
+    Model.point(doc, p[4]).hold = { cross: [bottom, across] };
+    return across;
+  }
+
+  // ---------- The whole drawing: fit it to the frame, turn it, flip it ----------
+  // Move every point and label by the same rule; refuse if anything would leave the grid.
+  function transform(doc, fn) {
+    const g = Model.size(doc), pts = doc.points.map(p => fn(p)), txt = doc.texts.map(t => fn(t));
+    if (!pts.every(p => fits(doc, p.x, p.y)) || !txt.every(t => t.x >= 0.5 && t.x <= g.w - 0.5 && t.y >= 0.5 && t.y <= g.h - 0.5)) return { error: OFF };
+    doc.points.forEach((p, i) => { p.x = pts[i].x; p.y = pts[i].y; });
+    doc.texts.forEach((t, i) => { t.x = txt[i].x; t.y = txt[i].y; });
+    Model.settle(doc);
+    if (!Model.sound(doc)) return { error: OFF };              // held points must still land on the grid, each in its own place
+    for (const c of doc.circles) {
+      const C = Model.point(doc, c.c), r = Model.radius(doc, c);
+      if (C.x - r < 0 || C.y - r < 0 || C.x + r > g.w || C.y + r > g.h) return { error: OFF };
+    }
+    return true;
+  }
+  const guarded = (doc, fn) => { const keep = JSON.stringify(doc), r = transform(doc, fn); if (r !== true) Object.assign(doc, JSON.parse(keep)); return r; };
+  // Resize and center the drawing so it fills the grid, with two squares of room around it. Every
+  // angle stays the same. A drawing on grid dots stays on grid dots when it can.
+  // With `shrinkOnly`, a drawing that already fits is only centered, never made bigger.
+  function fitToFrame(doc, shrinkOnly) {
+    const b = Model.bounds(doc), g = Model.size(doc), room = 2;
+    if (!b) return { error: 'Draw something first.' };
+    const w = b.x1 - b.x0, h = b.y1 - b.y0;
+    let k = Math.min(w > 1e-9 ? (g.w - 2 * room) / w : Infinity, h > 1e-9 ? (g.h - 2 * room) / h : Infinity);
+    if (!isFinite(k) || (shrinkOnly && k > 1)) k = 1;
+    const whole = v => Math.abs(v - Math.round(v)) < 1e-9, onDots = doc.points.every(p => whole(p.x) && whole(p.y));
+    if (onDots && k >= 1) k = Math.floor(k + 1e-9);
+    let dx = (g.w - w * k) / 2 - b.x0 * k, dy = (g.h - h * k) / 2 - b.y0 * k;
+    if (onDots && k >= 1) { dx = Math.round(dx); dy = Math.round(dy); }
+    if (Math.abs(k - 1) < 1e-9 && Math.abs(dx) < 1e-9 && Math.abs(dy) < 1e-9) return { error: 'It already fits the frame.' };
+    return guarded(doc, p => ({ x: p.x * k + dx, y: p.y * k + dy }));
+  }
+  const center = doc => { const b = Model.bounds(doc); return b && { x: (b.x0 + b.x1) / 2, y: (b.y0 + b.y1) / 2 }; };
+  // Turn the drawing about its middle; a positive turn is counterclockwise. If the turned drawing
+  // would not fit on the grid, it is moved back onto the grid, and made smaller only if it must be
+  // (every angle still the same). It is never made bigger.
+  function rotate(doc, deg) {
+    const c = center(doc);
+    if (!c) return { error: 'Draw something first.' };
+    const cs = Math.cos(deg * RAD), sn = Math.sin(deg * RAD);
+    const turn = p => ({ x: c.x + (p.x - c.x) * cs - (p.y - c.y) * sn, y: c.y + (p.x - c.x) * sn + (p.y - c.y) * cs });
+    const keep = JSON.stringify(doc);
+    if (transform(doc, turn) === true) return true;
+    Object.assign(doc, JSON.parse(keep));
+    for (const p of doc.points.concat(doc.texts)) { const q = turn(p); p.x = q.x; p.y = q.y; }
+    const r = fitToFrame(doc, true);
+    if (r !== true) Object.assign(doc, JSON.parse(keep));
+    return r === true ? true : { error: OFF };
+  }
+  // Mirror the drawing about its middle: 'x' flips left to right, 'y' top to bottom.
+  function flip(doc, axis) {
+    const c = center(doc);
+    if (!c) return { error: 'Draw something first.' };
+    return guarded(doc, p => (axis === 'x' ? { x: 2 * c.x - p.x, y: p.y } : { x: p.x, y: 2 * c.y - p.y }));
+  }
+
+  return { number, tilt, attached, setAngle, setLength, length, lenText, triangle, drawTriangle, drawAngle, drawCircle, starter, fitToFrame, rotate, flip };
+})();
+</script>
+<script>/* Draws a diagram as SVG. The same drawing serves the board (with the grid, tap targets and the
+   selection shown) and a downloaded picture (clean, cropped to a frame). Every color and size is
+   written on the shapes themselves, so a saved picture needs no style sheet.
+   Marks follow the Geometric Interactive Notes look: ticks, arcs, right-angle boxes and parallel
+   arrows in red, highlights in thicker red. */
+const Render = (() => {
+  'use strict';
+  const U = 20;   // drawing units for one grid square
+  const COLOR = { ink: '#3b2f25', hl: '#94401c', halo: '#f3d9c4', grid: '#c9b89c', paper: '#fffdf8', shades: ['#f6ead2', '#f0d6bb', '#e8c3a6', '#dcb0a0'] };     // sand, peach, clay, rose: warm, and each a step darker
+  const BW = { ink: '#000000', hl: '#000000', halo: '#dddddd', grid: '#999999', paper: '#ffffff', shades: ['#eeeeee', '#dcdcdc', '#c8c8c8', '#b4b4b4'] };
+  const FONT = 'Lato, Helvetica, Arial, sans-serif';
+
+  function el(ns, name, attrs, parent) {
+    const e = document.createElementNS(ns, name);
+    for (const k in attrs) e.setAttribute(k, attrs[k]);
+    if (parent) parent.appendChild(e);
+    return e;
+  }
+  // Where the path from P in direction d meets the frame, a little inside its edge.
+  function edge(P, d, f, m) {
+    let t = Infinity;
+    if (d.x > 0) t = Math.min(t, (f.x1 - m - P.x) / d.x);
+    if (d.x < 0) t = Math.min(t, (f.x0 + m - P.x) / d.x);
+    if (d.y > 0) t = Math.min(t, (f.y1 - m - P.y) / d.y);
+    if (d.y < 0) t = Math.min(t, (f.y0 + m - P.y) / d.y);
+    t = Math.max(0, t);
+    return { x: P.x + d.x * t, y: P.y + d.y * t };
+  }
+  // The two ends a piece is drawn between, and which ends carry an arrowhead.
+  function ends(doc, k, f) {
+    const A = Model.point(doc, k.a), B = Model.point(doc, k.b), d = { x: B.x - A.x, y: B.y - A.y };
+    if (k.kind === 'segment') return { P: A, Q: B, arrows: [false, false] };
+    if (k.kind === 'ray') return { P: A, Q: edge(B, d, f, 0.3), arrows: [false, true] };
+    return { P: edge(A, { x: -d.x, y: -d.y }, f, 0.3), Q: edge(B, d, f, 0.3), arrows: [true, true] };
+  }
+
+  /* o.frame: the part of the grid to show, in grid units (default: all of it).
+     o.grid: show the grid dots.   o.bw: black and white.   o.bold: thicker lines and bigger letters.
+     o.edit: add tap targets, keyboard focus and the selection.   o.selected: an id.
+     o.pending: ids of points already tapped for the piece being drawn.   o.hitR: tap-target radius. */
+  function draw(svg, doc, o = {}) {
+    const ns = svg.namespaceURI, g = Model.size(doc), c = o.bw ? BW : COLOR;
+    const f = o.frame || { x0: 0, y0: 0, x1: g.w, y1: g.h };
+    const X = x => (x - f.x0) * U, Y = y => (f.y1 - y) * U;
+    const W = (f.x1 - f.x0) * U, H = (f.y1 - f.y0) * U;
+    const m = o.bold ? 1.4 : 1;                       // marks and labels grow with the bold look
+    const sw = o.bold ? 3.4 : 2.2, head = o.bold ? 12 : 9, dotR = o.bold ? 4.8 : 3.6, fs = o.bold ? 21 : 17, off = o.bold ? 18 : 14, fsL = o.bold ? 20 : 15;
+    const pending = o.pending || [];
+    const marksOn = doc.marks !== false;             // Show Marks: tick marks, parallel arrows, angle arcs and right-angle boxes
+    const px = id => { const p = Model.point(doc, id); return { x: X(p.x), y: Y(p.y) }; };
+    const unit = (A, B) => { const dx = B.x - A.x, dy = B.y - A.y, l = Math.hypot(dx, dy) || 1; return { x: dx / l, y: dy / l }; };
+    // A group for one thing. On the board it can be tapped, focused and read aloud.
+    const group = (parent, id, cls, extra) => el(ns, 'g', o.edit ? Object.assign({ 'data-id': id, tabindex: '0', role: 'button', 'aria-label': Model.describe(doc, id), class: cls }, extra || {}) : {}, parent);
+    // A label centered at (x, y). With `along` (a direction on screen) it is turned to run parallel
+    // to that direction, the right way up.
+    const label = (parent, x, y, str, along) => {
+      const t = el(ns, 'text', { x, y, dy: '0.35em', 'text-anchor': 'middle', 'font-family': FONT, 'font-size': fsL, fill: c.ink, stroke: 'none' }, parent);
+      if (along) {
+        const deg = Math.atan2(along.y, along.x) * 180 / Math.PI, turn = ((deg + 90) % 180 + 180) % 180 - 90;
+        if (Math.abs(turn) > 0.01) t.setAttribute('transform', `rotate(${Math.round(turn * 100) / 100} ${x} ${y})`);
+      }
+      if (o.edit) t.setAttribute('aria-hidden', 'true');
+      t.textContent = str;
+      return t;
+    };
+    const mark = { fill: 'none', stroke: c.hl, 'stroke-width': 2 * m, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' };
+
+    while (svg.firstChild) svg.removeChild(svg.firstChild);
+    svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+    el(ns, 'rect', { x: 0, y: 0, width: W, height: H, fill: c.paper }, svg);
+    if (o.grid) {
+      const dots = el(ns, 'g', { 'aria-hidden': 'true', fill: c.grid }, svg);
+      for (let x = 1; x < g.w; x++) for (let y = 1; y < g.h; y++) el(ns, 'circle', { cx: X(x), cy: Y(y), r: 1.2 }, dots);
+    }
+
+    // ---------- Polygons: a shaded inside (their sides are ordinary segments, drawn below) ----------
+    for (const y of doc.polys) {
+      if (!o.edit && !y.shade) continue;
+      const d = y.pts.map((id, i) => `${i ? 'L' : 'M'}${px(id).x},${px(id).y}`).join(' ') + ' Z';
+      const grp = group(svg, y.id, 'poly');
+      el(ns, 'path', Object.assign({ d, fill: y.shade ? c.shades[y.shade - 1] : 'transparent', class: 'hit' }, o.edit && o.selected === y.id ? { stroke: c.hl, 'stroke-width': 2, 'stroke-dasharray': '5 4' } : { stroke: 'none' }), grp);
+    }
+
+    // ---------- Circles and their arcs ----------
+    for (const k of doc.circles) {
+      const C = px(k.c), r = Model.radius(doc, k) * U, grp = group(svg, k.id, 'circ');
+      if (o.edit) el(ns, 'circle', { cx: C.x, cy: C.y, r, fill: 'none', stroke: 'transparent', 'stroke-width': Math.max(14, (o.hitR || 0) * 0.9), class: 'hit' }, grp);
+      if (o.edit && o.selected === k.id) el(ns, 'circle', { cx: C.x, cy: C.y, r, fill: 'none', stroke: c.halo, 'stroke-width': sw + 7 }, grp);
+      if (!k.hide) el(ns, 'circle', { cx: C.x, cy: C.y, r, fill: 'none', stroke: c.ink, 'stroke-width': sw }, grp);
+      else if (o.edit) el(ns, 'circle', { cx: C.x, cy: C.y, r, fill: 'none', stroke: c.ink, 'stroke-opacity': 0.66, 'stroke-width': 1.5, 'stroke-dasharray': '3 5' }, grp);
+    }
+    for (const a of doc.arcs) {
+      const k = Model.circle(doc, a.c), C = px(k.c), r = Model.radius(doc, k) * U, s = Model.arcSweep(doc, a);
+      // Angles run counterclockwise on the grid, which is counterclockwise on screen too (y is flipped once).
+      const at = deg => ({ x: C.x + r * Math.cos(deg * Math.PI / 180), y: C.y - r * Math.sin(deg * Math.PI / 180) });
+      const S = at(s.start), E = at(s.start + s.sweep), mid = s.start + s.sweep / 2;
+      const d = `M${S.x},${S.y} A${r},${r} 0 ${s.sweep > 180 ? 1 : 0} 0 ${E.x},${E.y}`;
+      const grp = group(svg, a.id, 'arc');
+      if (o.edit) el(ns, 'path', { d, fill: 'none', stroke: 'transparent', 'stroke-width': Math.max(16, (o.hitR || 0) * 0.9), class: 'hit' }, grp);
+      if (o.edit && o.selected === a.id) el(ns, 'path', { d, fill: 'none', stroke: c.halo, 'stroke-width': sw + 9 }, grp);
+      el(ns, 'path', { d, fill: 'none', stroke: a.hl ? c.hl : c.ink, 'stroke-width': a.hl ? sw + 2 : sw, 'stroke-linecap': 'round' }, grp);
+      // Ticks cross the arc at its middle, fanned a little apart: arcs with the same ticks are congruent.
+      for (let i = 0; i < (marksOn ? a.ticks : 0); i++) {
+        const t = mid + (i - (a.ticks - 1) / 2) * (6 * m / r) * 180 / Math.PI, v = { x: Math.cos(t * Math.PI / 180), y: -Math.sin(t * Math.PI / 180) };
+        el(ns, 'line', Object.assign({ x1: C.x + v.x * (r - 7 * m), y1: C.y + v.y * (r - 7 * m), x2: C.x + v.x * (r + 7 * m), y2: C.y + v.y * (r + 7 * m) }, mark, a.hl ? { stroke: c.ink } : {}), grp);
+      }
+      // The label is centered on the arc's middle, just outside it, and follows the curve there.
+      if (a.label) { const v = at(mid), u = unit(C, v), d = (14 + (a.ticks ? 5 : 0)) * m; label(grp, v.x + u.x * d, v.y + u.y * d, a.label, { x: -u.y, y: u.x }); }
+    }
+
+    // ---------- Segments, rays and lines, with their marks ----------
+    const pieces = el(ns, 'g', { fill: 'none', 'stroke-linecap': 'round' }, svg);
+    for (const k of doc.pieces) {
+      const { P, Q, arrows } = ends(doc, k, f);
+      const x1 = X(P.x), y1 = Y(P.y), x2 = X(Q.x), y2 = Y(Q.y), L = Math.hypot(x2 - x1, y2 - y1) || 1;
+      const ux = (x2 - x1) / L, uy = (y2 - y1) / L, ink = k.hl ? c.hl : c.ink, w = k.hl ? sw + 1.4 : sw;
+      const grp = group(pieces, k.id, 'piece');
+      if (o.edit) el(ns, 'line', { x1, y1, x2, y2, stroke: 'transparent', 'stroke-width': Math.max(14, (o.hitR || 0) * 0.9), class: 'hit' }, grp);
+      if (o.edit && o.selected === k.id) el(ns, 'line', { x1, y1, x2, y2, stroke: c.halo, 'stroke-width': w + 7 }, grp);
+      // The line stops inside each arrowhead, so its round end never pokes through the tip.
+      const cut = head * 0.6;
+      el(ns, 'line', Object.assign({ x1: x1 + (arrows[0] ? ux * cut : 0), y1: y1 + (arrows[0] ? uy * cut : 0), x2: x2 - (arrows[1] ? ux * cut : 0), y2: y2 - (arrows[1] ? uy * cut : 0), stroke: ink, 'stroke-width': w },
+        k.dashed ? { 'stroke-dasharray': `${7 * m} ${6 * m}`, 'stroke-linecap': 'butt' } : {}), grp);
+      const tip = (tx, ty, dx, dy) => el(ns, 'polygon', {
+        points: `${tx},${ty} ${tx - dx * head - dy * head * 0.42},${ty - dy * head + dx * head * 0.42} ${tx - dx * head + dy * head * 0.42},${ty - dy * head - dx * head * 0.42}`,
+        fill: ink, stroke: 'none',
+      }, grp);
+      if (arrows[0]) tip(x1, y1, -ux, -uy);
+      if (arrows[1]) tip(x2, y2, ux, uy);
+      // Marks sit between the piece's two points: ticks at the middle; parallel arrows at the middle
+      // too, or a little farther along when there are ticks to make room for.
+      const A = px(k.a), B = px(k.b), u = unit(A, B), n = { x: -u.y, y: u.x };
+      const along = t => ({ x: A.x + (B.x - A.x) * t, y: A.y + (B.y - A.y) * t });
+      const marks = k.hl ? Object.assign({}, mark, { stroke: c.ink }) : mark;   // on a red piece, marks turn dark so they still show
+      for (let i = 0; i < (marksOn ? k.ticks : 0); i++) {
+        const s = (i - (k.ticks - 1) / 2) * 6 * m, p = along(0.5);
+        el(ns, 'line', Object.assign({ x1: p.x + u.x * s + n.x * 8 * m, y1: p.y + u.y * s + n.y * 8 * m, x2: p.x + u.x * s - n.x * 8 * m, y2: p.y + u.y * s - n.y * 8 * m }, marks), grp);
+      }
+      for (let i = 0; i < (marksOn ? k.arrows : 0); i++) {
+        const p = along(k.ticks ? 0.72 : 0.5), s = (i - (k.arrows - 1) / 2) * 7 * m + 4 * m, cx = p.x + u.x * s, cy = p.y + u.y * s;
+        el(ns, 'path', Object.assign({ d: `M${cx - u.x * 8 * m + n.x * 6 * m},${cy - u.y * 8 * m + n.y * 6 * m} L${cx},${cy} L${cx - u.x * 8 * m - n.x * 6 * m},${cy - u.y * 8 * m - n.y * 6 * m}` }, marks), grp);
+      }
+      if (k.label) {
+        // The label sits beside the middle of the piece: outside the polygon when the piece is one
+        // of its sides, otherwise above the piece. The teacher can flip it to the other side.
+        let nx = n.x, ny = n.y;
+        const p = along(0.5), y = doc.polys.find(q => q.pts.includes(k.a) && q.pts.includes(k.b));
+        if (y) {
+          const cx = y.pts.reduce((s, id) => s + px(id).x, 0) / y.pts.length, cy = y.pts.reduce((s, id) => s + px(id).y, 0) / y.pts.length;
+          if ((cx - p.x) * nx + (cy - p.y) * ny > 0) { nx = -nx; ny = -ny; }
+        } else if (ny > 0 || (ny === 0 && nx > 0)) { nx = -nx; ny = -ny; }
+        const side = k.flip ? -1 : 1, at = Model.labelAt(doc, k);
+        if (at === 'mid') {
+          // It runs parallel to the piece, just clear of it (and of any tick marks).
+          const d = (13 + (k.ticks ? 5 : 0)) * m;
+          label(grp, p.x + nx * d * side, p.y + ny * d * side, k.label, u);
+        } else {
+          /* A name by an arrowhead (line t, line k), as textbooks print it: level, beside the arrow,
+             just clear of the line whatever its slope, and kept inside the picture. */
+          const T = at === 'b' ? { x: x2, y: y2 } : { x: x1, y: y1 }, back = at === 'b' ? -1 : 1;
+          const w = k.label.length * fsL * 0.58 + 4, h = fsL, sx = nx * side, sy = ny * side;
+          const d = (Math.abs(sx) * w + Math.abs(sy) * h) / 2 + 6 * m;
+          // Nothing may hide a name: if a point or its letter is in the way, the label slides back along
+          // the line (on its chosen side first, then the other) until it is clear.
+          const busy = doc.points.flatMap(q => {
+            const qx = X(q.x), qy = Y(q.y), dd = Model.SIDES[Model.sideOf(doc, q)].d, nn = Math.hypot(dd[0], dd[1]), r = dotR + 3;
+            const out = [{ x0: qx - r, y0: qy - r, x1: qx + r, y1: qy + r }];
+            if (q.name) { const lx = qx + dd[0] / nn * off, ly = qy + dd[1] / nn * off, lw = q.name.length * fs * 0.62 / 2 + 2, lh = fs / 2 + 2; out.push({ x0: lx - lw, y0: ly - lh, x1: lx + lw, y1: ly + lh }); }
+            return out;
+          });
+          const spot = (j, sgn) => {
+            const b = head + (6 + j * 12) * m;
+            return { x: Math.min(W - w / 2 - 3, Math.max(w / 2 + 3, T.x + ux * b * back + sx * sgn * d)), y: Math.min(H - h / 2 - 3, Math.max(h / 2 + 3, T.y + uy * b * back + sy * sgn * d)) };
+          };
+          const clear = s => busy.every(r => s.x + w / 2 < r.x0 || s.x - w / 2 > r.x1 || s.y + h / 2 < r.y0 || s.y - h / 2 > r.y1);
+          let best = spot(0, 1);
+          search: for (let j = 0; j < 12; j++) for (const sgn of [1, -1]) { const s = spot(j, sgn); if (clear(s)) { best = s; break search; } }
+          label(grp, best.x, best.y, k.label);
+        }
+      }
+    }
+
+    // A polygon being drawn: its sides so far, dashed, so each tap shows something.
+    if (o.edit && o.preview && pending.length > 1) {
+      el(ns, 'path', { d: pending.map((id, i) => `${i ? 'L' : 'M'}${px(id).x},${px(id).y}`).join(' '), fill: 'none', stroke: c.hl, 'stroke-width': 2, 'stroke-dasharray': '6 5', 'aria-hidden': 'true' }, svg);
+    }
+
+    // ---------- Angle marks ----------
+    for (const a of doc.angles) {
+      const V = px(a.v), u = unit(V, px(a.a)), w = unit(V, px(a.b));
+      const arc = r => `M${V.x + u.x * r},${V.y + u.y * r} A${r},${r} 0 0 ${u.x * w.y - u.y * w.x > 0 ? 1 : 0} ${V.x + w.x * r},${V.y + w.y * r}`;
+      const wedge = r => `M${V.x},${V.y} L${V.x + u.x * r},${V.y + u.y * r} ` + arc(r).replace(/^M[^A]*/, '') + ' Z';
+      const grp = group(svg, a.id, 'angle'), picked = o.edit && o.selected === a.id;
+      // Four or five arcs reach farther out, so the highlight and the label move out with them.
+      const many = marksOn && !a.right && a.arcs > 3 ? 30 + (a.arcs - 1) * 5 : 0;
+      if (a.hl || picked) el(ns, 'path', Object.assign({ d: wedge((many ? many - 6 : 34) * m), fill: a.hl ? c.halo : 'none' }, picked ? { stroke: c.hl, 'stroke-width': 1.5, 'stroke-dasharray': '4 3' } : { stroke: 'none' }), grp);
+      if (o.edit) el(ns, 'path', { d: wedge(Math.max(30, o.hitR || 0)), fill: 'transparent', stroke: 'none', class: 'hit' }, grp);
+      const s = 12 * m;
+      if (!marksOn) { /* the angle keeps its label and highlight; only its mark is hidden */ }
+      else if (a.right) el(ns, 'path', Object.assign({ d: `M${V.x + u.x * s},${V.y + u.y * s} L${V.x + (u.x + w.x) * s},${V.y + (u.y + w.y) * s} L${V.x + w.x * s},${V.y + w.y * s}` }, mark), grp);
+      else for (let i = 0; i < a.arcs; i++) el(ns, 'path', Object.assign({ d: arc((22 + i * 5) * m) }, mark), grp);
+      if (a.label) {
+        // Along the middle of the angle, just outside its arcs; longer labels sit farther out, where there is more room.
+        let bx = u.x + w.x, by = u.y + w.y;
+        const bl = Math.hypot(bx, by);
+        if (bl < 1e-6) { bx = u.y; by = -u.x; } else { bx /= bl; by /= bl; }
+        const r = Math.max(40, 28 + a.label.length * 4.5, many) * m;
+        label(grp, V.x + bx * r, V.y + by * r, a.label);
+      }
+    }
+
+    // ---------- Points and their letters ----------
+    for (const p of doc.points) {
+      const cx = X(p.x), cy = Y(p.y), d = Model.SIDES[Model.sideOf(doc, p)].d, n = Math.hypot(d[0], d[1]);
+      const isPending = pending.includes(p.id), marked = o.edit && (o.selected === p.id || isPending);
+      const grp = group(svg, p.id, 'pt', { 'data-pt': '', 'aria-label': `${Model.describe(doc, p.id)}, at ${Math.round(p.x * 100) / 100}, ${Math.round(p.y * 100) / 100}` });
+      if (o.edit) el(ns, 'circle', { cx, cy, r: o.hitR || 18, fill: 'transparent', class: 'hit' }, grp);
+      if (marked) el(ns, 'circle', { cx, cy, r: dotR + 6, fill: c.halo, stroke: c.hl, 'stroke-width': 2, 'stroke-dasharray': isPending ? '4 3' : 'none' }, grp);
+      if (p.dot) el(ns, 'circle', { cx, cy, r: dotR, fill: c.ink }, grp);
+      // A hidden dot still shows faintly on the board, so the point can be found and moved.
+      else if (o.edit) el(ns, 'circle', { cx, cy, r: dotR, fill: 'none', stroke: c.grid, 'stroke-width': 1.5 }, grp);
+      if (p.name) {
+        const t = el(ns, 'text', {
+          x: cx + d[0] / n * off, y: cy + d[1] / n * off, dy: '0.35em', 'text-anchor': 'middle',
+          'font-family': FONT, 'font-size': fs, 'font-weight': 'bold', fill: c.ink,
+        }, grp);
+        if (o.edit) t.setAttribute('aria-hidden', 'true');
+        t.textContent = p.name;
+      }
+    }
+
+    // ---------- Free labels ----------
+    for (const t of doc.texts) {
+      const x = X(t.x), y = Y(t.y), shown = t.text || (o.edit ? 'Label' : ''), wide = Math.max(24, shown.length * fsL * 0.58 + 10);
+      const grp = group(svg, t.id, 'txt', { 'data-txt': '' });
+      if (t.tilt) grp.setAttribute('transform', `rotate(${-t.tilt} ${x} ${y})`);   // on screen, a positive turn is clockwise
+      if (o.edit) el(ns, 'rect', Object.assign({ x: x - wide / 2, y: y - fsL * 0.85, width: wide, height: fsL * 1.7, rx: 4, fill: 'transparent', class: 'hit' },
+        o.selected === t.id ? { stroke: c.hl, 'stroke-width': 1.5, 'stroke-dasharray': '4 3' } : { stroke: 'none' }), grp);
+      if (shown) { const e = label(grp, x, y, shown); if (!t.text) e.setAttribute('fill', c.grid); }
+    }
+    // The note about scale sits at the bottom of the picture, in the room the frame leaves for it.
+    const note = Model.scaleNote(doc);
+    if (note) {
+      const t = label(svg, W / 2, H - 11 * m, note);
+      t.setAttribute('font-style', 'italic');
+      t.setAttribute('class', 'scale-note');
+    }
+    return { W, H };
+  }
+
+  return { U, draw };
+})();
+</script>
+<script>/* Turns the diagram into a picture file and hands it to the browser as a download. Nothing is
+   sent anywhere and nothing is kept: the picture is made on this device. */
+const Export = (() => {
+  'use strict';
+  const PAD = 1.5;   // grid squares of room around the drawing, so letters and arrowheads fit
+
+  // The part of the grid a picture shows: the drawing plus some room, never past the grid's edge.
+  function frame(doc, bold) {
+    // Half a label's length and height in grid squares (the same sizes the drawing uses), less the room PAD already leaves.
+    const fs = bold ? 20 : 15, half = t => ({ w: Math.max(0, (t.text.length * fs * 0.72 + 10) / 2 / Render.U - PAD + 0.4), h: Math.max(0, fs * 0.85 / Render.U - PAD + 0.4) });
+    const b = Model.bounds(doc, true, half), g = Model.size(doc);
+    if (!b) return null;
+    // A scale note gets a strip of its own under the drawing, and enough width to be read.
+    const note = Model.scaleNote(doc), f = { x0: Math.max(0, b.x0 - PAD), y0: Math.max(0, b.y0 - PAD), x1: Math.min(g.w, b.x1 + PAD), y1: Math.min(g.h, b.y1 + PAD) };
+    if (note) {
+      f.y0 -= 1.2;
+      const short = (bold ? 11.5 : 8) - (f.x1 - f.x0);          // bold letters are wider
+      if (short > 0) { f.x0 -= short / 2; f.x1 += short / 2; }
+    }
+    return f;
+  }
+  // The picture as SVG text. `ns` is the SVG namespace, read from the board.
+  function svgText(doc, ns, o = {}) {
+    const f = frame(doc, o.bold);
+    if (!f) return null;
+    const svg = document.createElementNS(ns, 'svg');
+    const { W, H } = Render.draw(svg, doc, { frame: f, bw: o.bw, bold: o.bold });
+    svg.setAttribute('width', W); svg.setAttribute('height', H);
+    return { text: new XMLSerializer().serializeToString(svg), W, H };
+  }
+  /* A saved picture carries its own editable copy: the diagram, written as plain text in a text
+     note inside the PNG file (a 'tEXt' chunk, which picture viewers ignore). Open a Diagram reads
+     it back. It also carries its alt text in a second note (an 'iTXt' chunk, see embedAlt).
+     A PNG is a signature, then chunks: length, type, data, checksum. */
+  const KEY = 'diagram-designer';
+  const CRC = (() => { const t = []; for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+  function crc(bytes) { let c = 0xffffffff; for (let i = 0; i < bytes.length; i++) c = CRC[(c ^ bytes[i]) & 0xff] ^ (c >>> 8); return (c ^ 0xffffffff) >>> 0; }
+  const SIG = [137, 80, 78, 71, 13, 10, 26, 10];
+  const isPng = b => b.length > 20 && SIG.every((v, i) => b[i] === v);
+  const u32 = (b, i) => ((b[i] << 24) | (b[i + 1] << 16) | (b[i + 2] << 8) | b[i + 3]) >>> 0;
+  const SEP = String.fromCharCode(0);        // a PNG text note is its key, a zero byte, then the text
+  // Add the diagram's text to a PNG, just before its closing chunk. Returns the new file's bytes.
+  function embed(png, text) {
+    const body = KEY + SEP + encodeURIComponent(text), n = body.length;
+    const chunk = new Uint8Array(12 + n);
+    chunk.set([n >>> 24, (n >>> 16) & 255, (n >>> 8) & 255, n & 255, 116, 69, 88, 116]);      // length, then 'tEXt'
+    for (let i = 0; i < n; i++) chunk[8 + i] = body.charCodeAt(i);
+    const sum = crc(chunk.subarray(4, 8 + n));
+    chunk.set([sum >>> 24, (sum >>> 16) & 255, (sum >>> 8) & 255, sum & 255], 8 + n);
+    const end = png.length - 12, out = new Uint8Array(png.length + chunk.length);            // the closing chunk is the last 12 bytes
+    out.set(png.subarray(0, end)); out.set(chunk, end); out.set(png.subarray(end), end + chunk.length);
+    return out;
+  }
+  /* The picture's description (its alt text), kept in the file under the standard name
+     'Description' as an 'iTXt' chunk, which holds any letter or symbol. Most course sites do not read it;
+     it is there so the description stays with the file. */
+  function embedAlt(png, text) {
+    const head = 'Description', words = new TextEncoder().encode(text), n = head.length + 5 + words.length;
+    const chunk = new Uint8Array(12 + n);
+    chunk.set([n >>> 24, (n >>> 16) & 255, (n >>> 8) & 255, n & 255, 105, 84, 88, 116]);     // length, then 'iTXt'
+    for (let i = 0; i < head.length; i++) chunk[8 + i] = head.charCodeAt(i);
+    chunk.set(words, 8 + head.length + 5);        // after the name: five zero bytes (not compressed, no language, no translated name)
+    const sum = crc(chunk.subarray(4, 8 + n));
+    chunk.set([sum >>> 24, (sum >>> 16) & 255, (sum >>> 8) & 255, sum & 255], 8 + n);
+    const end = png.length - 12, out = new Uint8Array(png.length + chunk.length);
+    out.set(png.subarray(0, end)); out.set(chunk, end); out.set(png.subarray(end), end + chunk.length);
+    return out;
+  }
+  // The description saved in a PNG, or '' when it has none.
+  function alt(png) {
+    if (!isPng(png)) return '';
+    for (let i = 8; i + 12 <= png.length;) {
+      const n = u32(png, i), type = String.fromCharCode(png[i + 4], png[i + 5], png[i + 6], png[i + 7]);
+      if (i + 12 + n > png.length) return '';
+      if (type === 'iTXt' && n > 16 && String.fromCharCode(...png.subarray(i + 8, i + 19)) === 'Description') return new TextDecoder().decode(png.subarray(i + 8 + 16, i + 8 + n));
+      i += 12 + n;
+    }
+    return '';
+  }
+  // The diagram's text from a PNG this designer saved, or null for any other file.
+  function extract(png) {
+    if (!isPng(png)) return null;
+    for (let i = 8; i + 12 <= png.length;) {
+      const n = u32(png, i), type = String.fromCharCode(png[i + 4], png[i + 5], png[i + 6], png[i + 7]);
+      if (i + 12 + n > png.length) return null;
+      if (type === 'tEXt') {
+        let s = '';
+        for (let k = 0; k < n; k++) s += String.fromCharCode(png[i + 8 + k]);
+        if (s.startsWith(KEY + SEP)) { try { return decodeURIComponent(s.slice(KEY.length + 1)); } catch (e) { return null; } }
+      }
+      i += 12 + n;
+    }
+    return null;
+  }
+  /* Read a picture file the teacher chose. Resolves with { doc } (the diagram), or { why }:
+     'none' when the file carries no diagram (any picture not saved by this designer), or
+     'damaged' when it carries one that cannot be read or does not hold together. */
+  function open(file) {
+    return file.arrayBuffer().then(buf => {
+      const text = extract(new Uint8Array(buf));
+      if (!text) return { why: 'none' };
+      let doc = null;
+      try { doc = Model.restore(JSON.parse(text)); } catch (e) { doc = null; }
+      return doc ? { doc } : { why: 'damaged' };
+    });
+  }
+
+  // The picture as a PNG, `scale` times the drawing size (2 is sharp on a page or in a quiz).
+  function png(doc, ns, o = {}) {
+    return new Promise((resolve, reject) => {
+      const s = svgText(doc, ns, o);
+      if (!s) { reject(new Error('empty')); return; }
+      const scale = o.scale || 2, img = new Image();
+      img.onload = () => {
+        const cv = document.createElement('canvas');
+        cv.width = Math.round(s.W * scale); cv.height = Math.round(s.H * scale);
+        cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+        cv.toBlob(b => {
+          if (!b) { reject(new Error('picture')); return; }
+          b.arrayBuffer().then(buf => {
+            const bytes = embed(new Uint8Array(buf), JSON.stringify(doc));
+            resolve(new Blob([o.alt ? embedAlt(bytes, o.alt) : bytes], { type: 'image/png' }));
+          }, reject);
+        }, 'image/png');
+      };
+      img.onerror = () => reject(new Error('picture'));
+      img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(s.text);
+    });
+  }
+  function download(blob, name) {
+    const a = document.createElement('a'), url = URL.createObjectURL(blob);
+    a.href = url; a.download = name;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+  }
+  return { frame, svgText, png, download, embed, embedAlt, alt, extract, open };
+})();
+</script>
+<script>/* The screen: the drawing tools, the board, the Selected panel and the downloads.
+   Every action works by touch, mouse and keyboard: Tab to a point or piece, Enter picks it,
+   arrow keys move a selected point or label, Delete removes it. */
+(() => {
+  'use strict';
+  const $ = id => document.getElementById(id);
+  const snapOn = () => $('snap').checked;
+  const svg = $('board'), NS = svg.namespaceURI;
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+  // A phone starts on the small grid, where the dots are far enough apart to tap; the teacher can still pick a bigger one.
+  let doc = Model.create(window.innerWidth < 520 ? 'small' : 'medium'), hist = Model.history();
+  let tool = 'select', sel = null, picks = [], drag = null, dragged = false, typing = false;
+
+  // How many points each drawing tool needs, and what to say while they are tapped.
+  const TOOLS = {
+    select: { hint: ['Tap a piece to change it. Drag a point or a label to move it.'] },
+    point: { hint: ['Tap the grid to add a point.'] },
+    segment: { need: 2, hint: ['Tap one endpoint, then the other.', 'Now tap the other endpoint.'] },
+    ray: { need: 2, hint: ['Tap the endpoint first, then a point the ray goes through.', 'Now tap a point the ray goes through.'] },
+    line: { need: 2, hint: ['Tap two points on the line.', 'Now tap another point on the line.'] },
+    circle: { need: 2, hint: ['Tap the center, then a point on the circle.', 'Now tap a point on the circle.'] },
+    arc: { need: 2, existing: true, hint: ['Tap two points that are on one circle.', 'Now tap the other end of the arc.'] },
+    polygon: { hint: ['Tap each corner in order.', 'Tap the next corner.', 'Tap the next corner.', 'Tap the next corner. To finish, tap the first corner again or choose Finish Polygon.'] },
+    angle: { need: 3, existing: true, hint: ['Tap a point on one side, then the vertex, then a point on the other side.', 'Now tap the vertex.', 'Now tap a point on the other side.'] },
+    text: { hint: ['Tap a segment, angle or arc to label it, or tap open grid for a free label you can drag.'] },
+  };
+  // A message shows under the board, and also in the Selected card when that is where the teacher is working.
+  const say = msg => {
+    $('status').textContent = msg;
+    const inCard = (document.activeElement && $('sel-card').contains(document.activeElement)) || Date.now() - cardUsed < 600;
+    $('sel-note').textContent = inCard ? msg : '';
+  };
+  let cardUsed = 0;
+  for (const type of ['click', 'change', 'keydown']) $('sel-card').addEventListener(type, () => { cardUsed = Date.now(); }, true);
+
+  // ---------- Drawing the screen ----------
+  // Tap targets stay about a fingertip wide however small the board is on screen.
+  function hitR() {
+    const w = svg.getBoundingClientRect().width, scale = w / (Model.size(doc).w * Render.U);
+    return scale ? Math.min(42, Math.max(12, 22 / scale)) : 18;
+  }
+  function redraw(panel = true) {
+    const focused = document.activeElement && svg.contains(document.activeElement) ? document.activeElement.getAttribute('data-id') : null;
+    const inForm = panel && document.activeElement && $('selected').contains(document.activeElement) ? document.activeElement.id : null;
+    Model.refresh(doc);                    // labels that follow the drawing get their current measure
+    if (sel && !Model.item(doc, sel)) sel = null;
+    picks = picks.filter(id => Model.point(doc, id));
+    Render.draw(svg, doc, { grid: true, edit: true, selected: sel, pending: picks, preview: tool === 'polygon', hitR: hitR() });
+    if (focused) { const e = svg.querySelector(`[data-id="${focused}"]`); if (e) e.focus({ preventScroll: true }); }
+    svg.classList.toggle('adding', tool !== 'select');
+    document.querySelectorAll('#tools button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.tool === tool)));
+    const h = TOOLS[tool].hint;
+    $('hint').textContent = h[Math.min(picks.length, h.length - 1)];
+    $('add-center').hidden = tool === 'text' || !!TOOLS[tool].existing;
+    $('finish-poly').hidden = !(tool === 'polygon' && picks.length >= 3);
+    $('undo').disabled = !hist.canUndo; $('redo').disabled = !hist.canRedo; $('delete').disabled = !sel;
+    $('grid').value = doc.grid;
+    $('marks').setAttribute('aria-pressed', String(doc.marks !== false));
+    $('marks').textContent = doc.marks !== false ? 'Marks Are On' : 'Marks Are Off';
+    $('scale').value = Model.SCALES[doc.scale] ? doc.scale : 'auto';
+    // What the marks and labels claim that the drawing does not show: the reasons for "Not drawn to scale".
+    const why = Model.mismatches(doc);
+    $('scale-why').hidden = !why.length;
+    const mode = Model.SCALES[doc.scale] ? doc.scale : 'auto';
+    $('scale-lead').textContent = mode === 'yes' ? 'The picture will say "Drawn to scale", but these do not match the drawing:'
+      : mode === 'none' ? 'The picture will carry no note, but these do not match the drawing:' : 'The picture will say "Not drawn to scale" because:';
+    $('scale-how').textContent = mode === 'auto' ? 'Fix these and the note goes away, or keep them and the note stays. Scale Note lets you choose the note yourself.'
+      : 'Scale Note is set by hand. Choose Automatic to let the drawing decide.';
+    $('scale-list').innerHTML = why.map(w => `<li>${esc(w)}</li>`).join('');
+    if (panel) {
+      drawPanel();
+      // The form was rebuilt: put the keyboard back on the same control, or on the form's title.
+      if (inForm !== null) { const e = $(inForm) || $('sel-name'); if (e) e.focus({ preventScroll: true }); }
+    }
+    drawWords();
+  }
+  // ---------- Alt Text, and every piece as a list a screen reader can walk ----------
+  function words(id) {
+    const type = Model.typeOf(doc, id), o = Model.item(doc, id), bits = [Model.describe(doc, id)];
+    const count = (n, one, many) => { if (n) bits.push(`${n} ${n === 1 ? one : many}`); };
+    if (type === 'point') { if (o.hold) bits.push(Model.holdText(doc, o)); }       // no grid position: the list shows only what the picture shows
+    if (type === 'piece') { count(o.ticks, 'tick mark', 'tick marks'); count(o.arrows, 'parallel arrow', 'parallel arrows'); if (o.dashed) bits.push('dashed'); }
+    if (type === 'angle') { if (o.right) bits.push('right-angle box'); else count(o.arcs, 'arc', 'arcs'); }
+    if (type === 'poly' && o.shade) bits.push(`shaded ${Model.SHADES[o.shade].toLowerCase()}`);
+    if (type === 'circle') bits.push(`through point ${(Model.point(doc, o.on) || {}).name || '(no letter)'}`);
+    if (type === 'circle' && o.hide) bits.push('only its arcs shown');
+    if (type === 'arc') count(o.ticks, 'tick mark', 'tick marks');
+    if (o.hl) bits.push('highlighted');
+    if (o.label) bits.push(`labeled ${o.label}`);
+    if (type === 'text' && o.tilt) bits.push(`tilted ${o.tilt} degrees`);
+    return bits.join(', ');
+  }
+  /* A figure's name in notation, as G.I.N. teaches it: a bar over a segment's letters, an arrow
+     over a ray's (endpoint first), a two-headed arrow over a line's, a curve over an arc's, and
+     the angle, triangle and circle signs. Screen readers get the name in words instead. */
+  function ntMark(kind, n) {
+    const W = n * 68, mid = 15, head = 17;
+    if (kind === 'arc') return `<svg class="nt-svg" viewBox="0 0 ${W} 30" style="width:${n * 0.68}em" focusable="false"><path d="M4,26 Q${W / 2},-8 ${W - 4},26" stroke="currentColor" stroke-width="6" fill="none" stroke-linecap="round"></path></svg>`;
+    const x1 = kind === 'line' ? head - 2 : 2, x2 = kind === 'segment' ? W - 2 : W - head + 2;
+    let d = `<path d="M${x1},${mid} L${x2},${mid}" stroke="currentColor" stroke-width="7" stroke-linecap="butt" fill="none"></path>`;
+    if (kind !== 'segment') d += `<path d="M${W - head},${mid - 11} L${W},${mid} L${W - head},${mid + 11} Z" fill="currentColor"></path>`;
+    if (kind === 'line') d += `<path d="M${head},${mid - 11} L0,${mid} L${head},${mid + 11} Z" fill="currentColor"></path>`;
+    return `<svg class="nt-svg" viewBox="0 0 ${W} 30" style="width:${n * 0.68}em" focusable="false">${d}</svg>`;
+  }
+  function notation(id) {
+    const type = Model.typeOf(doc, id), o = Model.item(doc, id), spoken = Model.describe(doc, id);
+    const nm = pid => (Model.point(doc, pid) || {}).name || '';
+    const both = (seen, heard) => `<span aria-hidden="true">${seen}</span><span class="sr">${esc(heard)}</span>`;
+    const over = (kind, letters) => `<span class="nt">${ntMark(kind, letters.length)}<span class="nt-pts">${esc(letters)}</span></span>`;
+    // Without a letter on every point there is nothing to write the notation with: the name stays in words.
+    const ids = type === 'piece' ? [o.a, o.b] : type === 'angle' ? [o.a, o.v, o.b] : type === 'poly' ? o.pts : type === 'circle' ? [o.c] : type === 'arc' ? Model.arcEnds(doc, o) : [];
+    const letters = ids.map(nm);
+    if (type === 'point') return o.name ? both(`point <span class="nt-pts">${esc(o.name)}</span>`, `Point ${o.name}`) : '<span class="el-none">(no letter)</span>';
+    if (type === 'text') return o.text ? `<span class="nt-pts">${esc(o.text)}</span>` : '<span class="el-none">(empty)</span>';
+    if (!letters.every(Boolean)) return '<span class="el-none">(no letters)</span>';
+    if (type === 'piece') return both(over(o.kind, letters.join('')), spoken);
+    if (type === 'angle') return both(`\u2220<span class="nt-pts">${esc(letters.join(''))}</span>`, spoken);
+    if (type === 'poly') return o.pts.length === 3 ? both(`\u25b3<span class="nt-pts">${esc(letters.join(''))}</span>`, `Triangle ${letters.join('')}`) : both(`${o.pts.length === 4 ? 'quadrilateral' : 'polygon'} <span class="nt-pts">${esc(letters.join(''))}</span>`, spoken);
+    if (type === 'circle') return both(`\u2299<span class="nt-pts">${esc(letters.join(''))}</span>`, spoken);
+    const arc = Model.arcName(doc, o), named = arc.pts.map(nm);
+    if (!arc.short) return both(over('arc', named.join('')), spoken);
+    // A major arc or semicircle with no lettered point on it has no full name yet: say so rather than show a minor arc's label.
+    return both(`<span class="el-none">${arc.kind === 'major' ? 'major arc' : 'semicircle'}</span> <span class="nt-pts">${esc(named.join(''))}</span>`, spoken);
+  }
+  // What the diagram shows for an element: the kind of figure, then its marks, measure and label.
+  function drawnAs(id) {
+    const type = Model.typeOf(doc, id), o = Model.item(doc, id);
+    const kind = type === 'piece' ? o.kind : type === 'poly' ? (o.pts.length === 3 ? 'triangle' : o.pts.length === 4 ? 'quadrilateral' : 'polygon')
+      : type === 'arc' ? ({ major: 'major arc', semicircle: 'semicircle', minor: 'minor arc' })[Model.arcName(doc, o).kind] + (Model.arcName(doc, o).short ? ' (add a point on it to name it with three letters)' : '') : type === 'text' ? 'text label' : type;
+    return kind + words(id).slice(Model.describe(doc, id).length);
+  }
+  // Fit the Alt Text box to its text, so a short description is a short box.
+  function fitAlt() {
+    const box = $('alt');
+    if (!box.offsetParent) return;                    // hidden while its section is closed
+    box.style.height = 'auto';
+    box.style.height = (box.scrollHeight + 4) + 'px';
+  }
+  function drawWords() {
+    const alt = Model.altText(doc);
+    if ($('alt').value !== alt) { $('alt').value = alt; $('alt-note').textContent = ''; }
+    fitAlt();
+    $('alt-copy').disabled = !alt;
+    const ids = [].concat(...['points', 'pieces', 'angles', 'polys', 'circles', 'arcs', 'texts'].map(l => doc[l].map(o => o.id)));
+    $('words').innerHTML = ids.length ? ids.map(id => `<li><button type="button" class="word" data-id="${id}"${id === sel ? ' aria-current="true"' : ''}><span class="el-name">${notation(id)}</span><span class="sr">. In the diagram: </span><span class="el-draw">${esc(drawnAs(id))}</span></button></li>`).join('')
+      : '<li class="muted">Nothing is drawn yet.</li>';
+  }
+
+  // Make a change that Undo can take back. `fn` returns false when nothing changed.
+  function change(fn) {
+    hist.save(doc);
+    const r = fn();
+    if (r === false) hist.drop();
+    return r;
+  }
+  function select(id, panel = true) { sel = id; redraw(panel); }
+  function setTool(t) { tool = t; picks = []; say(''); redraw(); }
+
+  // ---------- The Selected panel: one short form for the thing that was tapped ----------
+  const field = (id, label, inner) => `<label class="field" for="${id}">${label}${inner}</label>`;
+  const pick = (id, label, value, options) => field(id, label, `<select id="${id}">${options.map(([v, name]) => `<option value="${v}"${String(v) === String(value) ? ' selected' : ''}>${esc(name)}</option>`).join('')}</select>`);
+  const check = (id, label, on) => `<label class="check" for="${id}"><input type="checkbox" id="${id}"${on ? ' checked' : ''}> ${label}</label>`;
+  const COUNTS = [[0, 'None'], [1, '1'], [2, '2'], [3, '3']];
+  // Where a line's or ray's label goes: beside the middle, or by an arrowhead (named by the point it is past).
+  const atPick = o => {
+    if (o.kind === 'segment') return '';
+    const nm = id => (Model.point(doc, id).name || '').trim(), end = (id, blank) => (nm(id) ? `End Past ${nm(id)}` : blank);
+    const opts = o.kind === 'ray' ? [['mid', 'Middle'], ['b', 'At the Arrow End']] : [['mid', 'Middle'], ['a', end(o.a, 'At One End')], ['b', end(o.b, 'At the Other End')]];
+    return pick('f-at', 'Label Position', Model.labelAt(doc, o), opts);
+  };
+  // A label box with the symbols a keyboard doesn't have, one tap each.
+  const SYMBOLS = [['°', 'degree sign'], ['−', 'minus sign'], ['√', 'square root sign'], ['π', 'pi'], ['²', 'squared'], ['θ', 'theta'], ['≅', 'is congruent to'], ['∠', 'angle sign']];
+  const labelBox = (id, label, value) => field(id, label, `<input type="text" id="${id}" autocomplete="off" autocapitalize="off" spellcheck="false" value="${esc(value)}">`) +
+    `<div class="symbols" role="group" aria-label="Symbols to add to the label">${SYMBOLS.map(([ch, name]) => `<button type="button" class="sym" data-for="${id}" data-sym="${ch}" aria-label="${name}">${ch}</button>`).join('')}</div>`;
+
+  // A text box that edits one property; a whole burst of typing is one Undo step.
+  function bindText(id, set, after) {
+    const box = $(id);
+    box.addEventListener('input', () => {
+      if (!typing) { hist.save(doc); typing = true; }
+      set(box.value);
+      if (after) after();
+      redraw(false);
+    });
+    box.addEventListener('blur', () => { typing = false; });
+  }
+  const bindChange = (id, set) => $(id).addEventListener('change', e => { change(() => set(e.target.type === 'checkbox' ? e.target.checked : e.target.value)); redraw(); const again = $(id); if (again) again.focus(); });
+
+  // Run a tool that reshapes the drawing. It either works (one Undo step) or says why not and changes nothing.
+  function reshape(fn, note) {
+    const was = JSON.stringify(doc);
+    hist.save(doc);
+    const r = fn();
+    if (r === true || typeof r === 'string') { if (JSON.stringify(doc) === was) hist.drop(); say(''); redraw(); return r; }
+    hist.drop();
+    (note || say)(r.error);
+    return false;
+  }
+  // 'Make this ... [measure], by moving [point]': the teacher types the measure, the tool moves the point.
+  const exactBox = (label, button, example, a, b) => {
+    const first = Solve.attached(doc, b) <= Solve.attached(doc, a) ? b : a, second = first === a ? b : a;
+    return `<div class="exact">${field('f-exact', label, `<input type="text" id="f-exact" inputmode="decimal" autocomplete="off" placeholder="${example}">`)}` +
+      pick('f-move', 'By Moving', first, [first, second].map(id => [id, Model.describe(doc, id)])) + `<button type="button" id="f-set" class="small">${button}</button></div>`;
+  };
+  function bindExact(run, askFor) {
+    const go = () => {
+      const v = Solve.number($('f-exact').value);
+      if (isNaN(v)) { say(askFor); $('f-exact').focus(); return; }
+      reshape(() => run(v, $('f-move').value));
+    };
+    $('f-set').addEventListener('click', go);
+    $('f-exact').addEventListener('keydown', e => { if (e.key === 'Enter') go(); });
+  }
+
+  // A measured label: typing in the box sets it by hand; Use Measured Value makes it follow the drawing.
+  const followNote = o => (o.auto ? '<p class="muted note">This label follows the drawing. Type in the box to set it yourself.</p>' : '');
+  function bindLabel(o) {
+    bindText('f-label', v => { o.label = v; o.auto = false; });
+    if ($('f-measure')) $('f-measure').addEventListener('click', () => { change(() => { o.auto = true; }); redraw(); $('f-measure').focus(); });
+  }
+
+  const partsOf = o => (o ? Model.partsOf(doc, o.id) : []);
+  // Choose the segment between two points on a line, drawing it over the line first if it is not there yet.
+  function choosePart(o, m, n) {
+    const have = doc.pieces.find(k => k.kind === 'segment' && ((k.a === m.id && k.b === n.id) || (k.a === n.id && k.b === m.id)));
+    const id = have ? have.id : change(() => Model.addPiece(doc, 'segment', m.id, n.id));
+    if (!id) return false;
+    select(id);
+    say(have ? '' : `${Model.describe(doc, id)} is drawn over the ${Model.KINDS[o.kind].toLowerCase()}. Mark or label it here.`);
+    return true;
+  }
+  // Choose the arc of a circle from point m counterclockwise to point n, drawing it over the circle first if it is not there yet.
+  function chooseArc(ring, m, n) {
+    const have = Model.arcBetween(doc, ring.id, m.id, n.id, true);
+    const id = have ? have.id : change(() => { const got = Model.arcBetween(doc, ring.id, m.id, n.id); return got ? got.id : false; });
+    if (!id) return false;
+    cardUsed = Date.now();
+    select(id);
+    say(have ? '' : `${Model.describe(doc, id)} is drawn over the circle. Mark or label it here, or erase the rest of the circle.`);
+    return true;
+  }
+  // The arcs of a circle between neighboring points on it, each as [from, to] going counterclockwise.
+  function arcsOf(ring) {
+    const on = Model.pointsOnCircle(doc, ring.id);
+    return on.length < 2 ? [] : on.map((q, i) => [q, on[(i + 1) % on.length]]);
+  }
+  function drawPanel() {
+    const box = $('selected'), type = sel && Model.typeOf(doc, sel), o = sel && Model.item(doc, sel);
+    typing = false;
+    const title = `<p class="lead-sm" id="sel-name" tabindex="-1">${sel ? esc(Model.describe(doc, sel)) : ''}</p>`;
+    const del = '<button type="button" id="f-del" class="small">Delete</button>';
+    if (type === 'point') {
+      box.innerHTML = title + field('f-name', 'Letter', `<input type="text" id="f-name" maxlength="3" autocomplete="off" autocapitalize="characters" spellcheck="false" value="${esc(o.name)}">`) +
+        pick('f-side', 'Letter Position', o.side, [['auto', 'Automatic']].concat(Object.keys(Model.SIDES).map(s => [s, Model.SIDES[s].name]))) +
+        check('f-dot', 'Show the Dot', o.dot) +
+        (o.hold ? `<p class="muted note">It stays ${esc(Model.holdText(doc, o))}, and moves with ${o.hold.on ? 'it' : 'them'}.</p><button type="button" id="f-free" class="small">Let It Move Freely</button>` : '') +
+        `<div class="exact"><div class="tri-grid">${field('f-x', 'Squares Across', `<input type="text" id="f-x" inputmode="decimal" autocomplete="off" value="${esc(Solve.lenText(o.x))}">`)}${field('f-y', 'Squares Up', `<input type="text" id="f-y" inputmode="decimal" autocomplete="off" value="${esc(Solve.lenText(o.y))}">`)}</div>
+        <button type="button" id="f-place" class="small">Move the Point</button></div>` + del;
+      bindText('f-name', v => { o.name = v.trim(); }, () => { $('sel-name').textContent = Model.describe(doc, sel); });
+      bindChange('f-side', v => { o.side = v; });
+      bindChange('f-dot', v => { o.dot = v; });
+      if ($('f-free')) $('f-free').addEventListener('click', () => { change(() => { delete o.hold; }); say('It can be moved anywhere now.'); redraw(); });
+      // Placing a point by typing where it goes: the way to move one without dragging.
+      $('f-place').addEventListener('click', () => {
+        const x = Solve.number($('f-x').value), y = Solve.number($('f-y').value);
+        if (isNaN(x) || isNaN(y)) { say('Type two numbers, like 4 and 7.'); return; }
+        reshape(() => (Model.movePoint(doc, sel, x, y) ? true : { error: o.hold && o.hold.cross ? 'It stays where its two lines cross. Choose Let It Move Freely first.' : 'It can\u2019t go there: that spot is off the grid, already taken, or where the point is now.' }));
+      });
+    } else if (type === 'piece') {
+      /* A line or ray is one piece, however many points lie on it. The part between two neighboring
+         points is a segment of its own: these buttons choose it (drawing it first if need be), so it
+         can be labeled, ticked or highlighted by itself. */
+      const parts = partsOf(o);
+      const partRow = parts.length ? `<p class="field" id="parts-title">Segments on This ${Model.KINDS[o.kind]}</p><div class="field-row parts" role="group" aria-labelledby="parts-title">${parts.map(([m, n], i) => `<button type="button" class="small" data-part="${i}">Segment ${esc(m.name || '?')}${esc(n.name || '?')}</button>`).join('')}</div>` : '';
+      box.innerHTML = title + partRow + pick('f-kind', 'Kind', o.kind, Object.keys(Model.KINDS).map(v => [v, Model.KINDS[v]])) +
+        pick('f-ticks', 'Tick Marks (Congruent)', o.ticks, COUNTS) + pick('f-arrows', 'Arrow Marks (Parallel)', o.arrows, COUNTS) +
+        check('f-dashed', 'Dashed', o.dashed) + check('f-hl', 'Highlight', o.hl) +
+        (o.tan && Model.circle(doc, o.tan) ? check('f-tan', `Meant to Be Tangent to ${esc(Model.describe(doc, o.tan))}`, true) : '') +
+        labelBox('f-label', 'Label', o.label) + followNote(o) + atPick(o) +
+        (o.kind === 'segment' ? `<p class="muted measure">It is ${esc(Solve.lenText(Solve.length(doc, o)))} grid squares long in this drawing.</p>` + exactBox('Make This Side', 'Set the Length', '5', o.a, o.b) : '') +
+        `<div class="field-row">${o.kind === 'segment' ? '<button type="button" id="f-measure" class="small">Use Measured Length</button>' : ''}${o.label ? '<button type="button" id="f-flip" class="small">Move Label to the Other Side</button>' : ''}
+        ${o.kind === 'ray' ? '<button type="button" id="f-swap" class="small">Start From the Other Point</button>' : ''}${del}</div>`;
+      $('f-kind').addEventListener('change', e => { if (change(() => Model.setKind(doc, sel, e.target.value)) === false) say('That one is already drawn.'); redraw(); });
+      box.querySelectorAll('[data-part]').forEach(b => b.addEventListener('click', () => {
+        const [m, n] = parts[+b.dataset.part];
+        cardUsed = Date.now();
+        if (choosePart(o, m, n)) $('sel-name').focus();
+      }));
+      bindChange('f-ticks', v => { o.ticks = +v; });
+      bindChange('f-arrows', v => { o.arrows = +v; });
+      bindChange('f-dashed', v => { o.dashed = v; });
+      if ($('f-tan')) bindChange('f-tan', v => { if (!v) delete o.tan; });
+      bindChange('f-hl', v => { o.hl = v; });
+      if ($('f-at')) bindChange('f-at', v => { o.at = v; });
+      bindLabel(o);
+      if (o.kind === 'segment') {
+        bindExact((v, mv) => { const old = Solve.lenText(Solve.length(doc, o)), r = Solve.setLength(doc, sel, v, mv); if (r === true && o.label === old) o.label = Solve.lenText(v); return r; }, 'Type a length, like 5.');
+      }
+      if ($('f-flip')) $('f-flip').addEventListener('click', () => { change(() => { o.flip = !o.flip; }); redraw(); $('f-flip').focus(); });
+      if ($('f-swap')) $('f-swap').addEventListener('click', () => { if (change(() => Model.swapEnds(doc, sel)) === false) say('That ray is already drawn.'); redraw(); if ($('f-swap')) $('f-swap').focus(); });
+    } else if (type === 'angle') {
+      box.innerHTML = title + `<p class="muted measure">It measures ${esc(Model.degText(Model.angleDeg(doc, o)))} in this drawing.</p>` +
+        pick('f-mark', 'Mark', !o.set ? 'auto' : o.right ? 'box' : o.arcs, [['auto', 'Automatic (a Box at 90\u00b0)'], [0, 'None'], [1, '1 Arc'], [2, '2 Arcs'], [3, '3 Arcs'], [4, '4 Arcs'], [5, '5 Arcs'], ['box', 'Right-Angle Box (Perpendicular)']]) +
+        check('f-hl', 'Highlight', o.hl) + labelBox('f-label', 'Label', o.label) + followNote(o) + exactBox('Make This Angle', 'Set the Angle', '40', o.a, o.b) +
+        `<div class="field-row"><button type="button" id="f-measure" class="small">Use Measured Value</button>${del}</div>`;
+      // Choosing a mark keeps it, whatever the angle measures; Automatic hands the choice back to the drawing.
+      bindChange('f-mark', v => { o.set = v !== 'auto'; if (o.set) { o.right = v === 'box'; o.arcs = v === 'box' ? 0 : +v; } });
+      bindChange('f-hl', v => { o.hl = v; });
+      bindLabel(o);
+      // A label that showed the old measure follows the new one.
+      bindExact((v, mv) => { const old = Model.degText(Model.angleDeg(doc, o)), r = Solve.setAngle(doc, sel, v, mv); if (r === true && o.label === old) o.label = Model.degText(v); return r; }, 'Type a measure, like 40.');
+    } else if (type === 'poly') {
+      box.innerHTML = title + pick('f-shade', 'Shade the Inside', o.shade || 0, Model.SHADES.map((name, i) => [i, name])) + '<p class="muted note">Deleting the polygon keeps its sides.</p>' + del;
+      bindChange('f-shade', v => { o.shade = +v; });
+    } else if (type === 'circle') {
+      const has = doc.pieces.some(k => k.kind === 'segment' && ((k.a === o.c && k.b === o.on) || (k.a === o.on && k.b === o.c)));
+      box.innerHTML = title + '<p class="muted note">Drag its center or the point on it to move or resize it. New points snap onto the circle.</p>' +
+        (arcsOf(o).length ? `<p class="field" id="arcs-title">Arcs on This Circle</p><div class="field-row parts" role="group" aria-labelledby="arcs-title">${arcsOf(o).map(([m, n], i) => {
+          return `<button type="button" class="small" data-arc="${i}">${esc(Model.arcLabelBetween(doc, o.id, m.id, n.id))}</button>`;
+        }).join('')}</div><p class="muted note">Choosing the circle again on the board, between two points on it, chooses that arc too.</p>` : '') +
+        check('f-hide', 'Show Only Its Arcs', o.hide) + (o.hide ? '<p class="muted note">The dotted circle is a guide. It is not in the picture you download.</p>' : '') +
+        `<div class="field-row">${has ? '' : '<button type="button" id="f-radius" class="small">Draw the Radius</button>'}${del}</div>`;
+      box.querySelectorAll('[data-arc]').forEach(b => b.addEventListener('click', () => {
+        const [m, n] = arcsOf(o)[+b.dataset.arc];
+        if (chooseArc(o, m, n)) $('sel-name').focus();
+      }));
+      $('f-hide').addEventListener('change', e => { change(() => { if (e.target.checked) o.hide = true; else delete o.hide; }); redraw(); $('f-hide').focus(); });
+      if ($('f-radius')) $('f-radius').addEventListener('click', () => { change(() => Model.addPiece(doc, 'segment', o.c, o.on)); redraw(); });
+    } else if (type === 'arc') {
+      box.innerHTML = title + `<p class="muted measure">It measures ${esc(Model.measured(doc, sel))} in this drawing.</p>` +
+        check('f-hl', 'Highlight', o.hl) + pick('f-ticks', 'Tick Marks (Congruent)', o.ticks, COUNTS) + labelBox('f-label', 'Label', o.label) + followNote(o) +
+        `<div class="field-row"><button type="button" id="f-measure" class="small">Use Measured Value</button><button type="button" id="f-other" class="small">Use the Other Arc</button><button type="button" id="f-rest" class="small">${Model.circle(doc, o.c).hide ? 'Show the Whole Circle' : 'Erase the Rest of the Circle'}</button>${del}</div>`;
+      bindChange('f-hl', v => { o.hl = v; });
+      bindChange('f-ticks', v => { o.ticks = +v; });
+      bindLabel(o);
+      $('f-other').addEventListener('click', () => {
+        if (doc.arcs.some(r => r !== o && r.c === o.c && ((r.a === o.a && r.b === o.b) || (r.a === o.b && r.b === o.a)))) { say('The other arc is already drawn. Choose the circle, then choose it under Arcs on This Circle.'); return; }
+        change(() => { o.other = !o.other; }); say(''); redraw(); $('f-other').focus();
+      });
+      $('f-rest').addEventListener('click', () => { const k = Model.circle(doc, o.c); change(() => {
+          if (k.hide) { delete k.hide; return; }
+          k.hide = true;
+          // Plain arcs on the rest of the circle (no highlight, ticks or label) could not be seen before, so they go too.
+          doc.arcs.filter(r => r !== o && r.c === o.c && !r.hl && !r.ticks && !r.label).forEach(r => Model.remove(doc, r.id));
+        }); say(''); redraw(); $('f-rest').focus(); });
+    } else if (type === 'text') {
+      box.innerHTML = title + labelBox('f-label', 'Words or Math', o.text) +
+        field('f-tilt', 'Tilt (Degrees, Counterclockwise)', `<input type="text" id="f-tilt" inputmode="text" autocomplete="off" value="${esc(String(o.tilt || 0))}">`) +
+        `<div class="field-row"><button type="button" id="f-tilt-l" class="small">Tilt Left</button><button type="button" id="f-tilt-r" class="small">Tilt Right</button><button type="button" id="f-tilt-0" class="small">Make It Level</button>${del}</div>` +
+        '<p class="muted note">Type any angle: 90 reads up the page, and a negative angle tilts the other way. Tilt Left and Tilt Right turn it 15 degrees at a time.</p>';
+      bindText('f-label', v => { o.text = v; }, () => { $('sel-name').textContent = Model.describe(doc, sel); });
+      // Typing an angle turns the label as each digit lands; anything that is not a number is left alone.
+      bindText('f-tilt', v => {
+        const n = v.trim() === '' ? 0 : Solve.tilt(v), half = /^\s*[-\u2212]?\s*\.?\s*$/.test(v);      // half-typed: just a minus or a point so far
+        if (!isNaN(n)) Model.tiltText(doc, sel, n);
+        cardUsed = Date.now();
+        say(isNaN(n) && !half ? 'Type the tilt as a number of degrees, like 30 or -45.' : '');
+      });
+      const tiltBy = (id, to) => $(id).addEventListener('click', () => { change(() => Model.tiltText(doc, sel, to(o.tilt || 0))); redraw(); $(id).focus(); });
+      tiltBy('f-tilt-l', d => d + 15); tiltBy('f-tilt-r', d => d - 15); tiltBy('f-tilt-0', () => 0);
+    } else {
+      box.innerHTML = '<p class="muted none" id="sel-name" tabindex="-1">Nothing is selected.<br>Choose Select,<br>then tap a point or a piece.</p>';
+    }
+    if ($('f-del')) $('f-del').addEventListener('click', removeSelected);
+  }
+  // A symbol button types its symbol where the cursor is.
+  $('selected').addEventListener('click', e => {
+    const b = e.target.closest('button.sym');
+    if (!b) return;
+    const box = $(b.dataset.for), at = box.selectionStart == null ? box.value.length : box.selectionStart, end = box.selectionEnd == null ? at : box.selectionEnd;
+    box.value = box.value.slice(0, at) + b.dataset.sym + box.value.slice(end);
+    box.focus();
+    box.setSelectionRange(at + b.dataset.sym.length, at + b.dataset.sym.length);
+    box.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  function removeSelected() {
+    if (!sel) return;
+    const what = Model.describe(doc, sel);
+    change(() => Model.remove(doc, sel));
+    sel = null;
+    const onBoard = document.activeElement && (svg.contains(document.activeElement) || document.activeElement === document.body || document.activeElement === $('delete'));
+    redraw();
+    if (onBoard) svg.focus({ preventScroll: true });
+    say(`${what} deleted.`);
+  }
+
+  // ---------- Using a tool on the board ----------
+  function toModel(e) {
+    const pt = svg.createSVGPoint();
+    pt.x = e.clientX; pt.y = e.clientY;
+    const p = pt.matrixTransform(svg.getScreenCTM().inverse()), g = Model.size(doc);
+    return { x: p.x / Render.U, y: g.h - p.y / Render.U };
+  }
+  // Say so when a piece has landed exactly tangent to a circle: it is hard to tell by eye.
+  function sayTangent(ids) {
+    for (const id of ids) {
+      const c = Model.tangentTo(doc, id);
+      if (c) { Model.piece(doc, id).tan = c.id; say(`${Model.describe(doc, id)} is tangent to ${Model.describe(doc, c.id)}.`); return; }
+    }
+  }
+  // The tapped points are enough: draw the piece.
+  function finish() {
+    const [a, b, c] = picks;
+    const made = change(() => (tool === 'circle' ? Model.addCircle(doc, a, b) : tool === 'arc' ? Model.addArc(doc, a, b)
+      : tool === 'angle' ? Model.addAngle(doc, a, b, c) : tool === 'polygon' ? Model.addPolygon(doc, picks) : Model.addPiece(doc, tool, a, b)));
+    picks = [];
+    const both = tool === 'arc' && doc.arcs.filter(r => (r.a === a && r.b === b) || (r.a === b && r.b === a)).length > 1;
+    if (made === false) say(both ? 'Both arcs between those two points are already drawn. Tap one on the board to choose it.' : tool === 'arc' ? 'Those two points are not on one circle. Draw a circle, then add points on it.' : tool === 'angle' ? 'Those points don’t make an angle to mark.' : 'That one is already drawn.');
+    else { sel = made; say(''); sayTangent([made]); }
+    redraw();
+  }
+  // A tap on a thing (id), or on the open grid at M.
+  function act(id, M) {
+    say('');
+    if (tool === 'select') { select(id && Model.item(doc, id) ? id : null); return; }
+    if (tool === 'text') {
+      // Tapping a segment, ray, line, angle or arc labels that piece: its label then stays with it,
+      // parallel to a line or centered on an arc. Open grid gets a free label.
+      if (id && ['piece', 'angle', 'arc'].includes(Model.typeOf(doc, id))) {
+        tool = 'select'; picks = [];
+        select(id);
+        if ($('f-label')) $('f-label').focus();
+        say(`Type the label for ${Model.describe(doc, id)}.`);
+        return;
+      }
+      if (!M) return;
+      const made = change(() => Model.addText(doc, M.x, M.y, ''));
+      tool = 'select'; picks = [];
+      select(made);
+      if ($('f-label')) $('f-label').focus();
+      return;
+    }
+    let pid = id && Model.point(doc, id) ? id : null;
+    if (!pid && M) {
+      // While a segment, ray or line is being drawn, its second point can snap to where the piece would be tangent.
+      const from = ['segment', 'ray', 'line'].includes(tool) && picks.length === 1 ? picks[0] : undefined;
+      // A new point joins a line, crossing or circle only when the tap is right on it (about 4 pixels), so a tap beside a line stays beside it.
+      const tight = Math.max(0.12, Math.min(0.35, 4 * Model.size(doc).w / svg.getBoundingClientRect().width));
+      const S = Model.snap(doc, M, undefined, from, !snapOn(), tight), there = Model.pointAt(doc, S.x, S.y);
+      if (there) pid = there.id;
+      else if (TOOLS[tool].existing) { say('Tap a point that is already drawn.'); return; }
+      else { pid = change(() => Model.addPoint(doc, S.x, S.y, S.hold)); if (pid === false) return; }
+    }
+    if (!pid) return;                       // a tap on a piece while adding does nothing
+    if (tool === 'point') { select(pid); return; }
+    if (tool === 'polygon') {
+      if (pid === picks[0] && picks.length >= 3) { finish(); return; }
+      if (!picks.includes(pid)) picks.push(pid);
+      sel = null; redraw();
+      return;
+    }
+    if (picks.includes(pid)) { picks = picks.filter(p => p !== pid); redraw(); return; }   // tapping a picked point again lets go of it
+    picks.push(pid); sel = null;
+    if (picks.length === TOOLS[tool].need) finish(); else redraw();
+  }
+  let pressSel = null;
+  svg.addEventListener('pointerdown', e => {
+    const g = e.target.closest('[data-pt], [data-txt]');
+    dragged = false;
+    pressSel = sel;                 // what was chosen before this press: pressing a point chooses it at once
+    if (!g || tool !== 'select') return;
+    e.preventDefault();
+    const id = g.getAttribute('data-id');
+    if (sel !== id) select(id);
+    drag = { id, pid: e.pointerId, saved: false, text: g.hasAttribute('data-txt') };
+    const held = Model.point(doc, id);
+    if (held && held.hold && held.hold.cross) say(`${Model.describe(doc, id)} stays ${Model.holdText(doc, held)}. Drag it more than a square away to pull it off.`);
+    try { svg.setPointerCapture(e.pointerId); } catch (err) { /* the board still follows the drag */ }
+  });
+  svg.addEventListener('pointermove', e => {
+    if (!drag || e.pointerId !== drag.pid) return;
+    const M = toModel(e);
+    if (!drag.saved) { hist.save(doc); drag.saved = true; }
+    let moved;
+    if (drag.text) moved = Model.moveText(doc, drag.id, M.x, M.y);
+    else {
+      const was = Model.point(doc, drag.id), held = was && was.hold ? Model.holdText(doc, was) : '';
+      const S = Model.snap(doc, M, drag.id, undefined, !snapOn()); moved = Model.movePoint(doc, drag.id, S.x, S.y, S.hold || null);
+      // Pulled off its line or crossing: say so, and how to put it back.
+      if (moved && held && !Model.point(doc, drag.id).hold) say(`${Model.describe(doc, drag.id)} is no longer held ${held}. Drag it back there to join it again.`);
+    }
+    if (moved) { dragged = true; redraw(false); }
+  });
+  const endDrag = e => {
+    if (!drag || e.pointerId !== drag.pid) return;
+    if (drag.saved && !dragged) hist.drop();
+    const moved = dragged && !drag.text ? drag.id : null;
+    drag = null;
+    redraw();
+    if (moved) sayTangent(doc.pieces.filter(k => k.a === moved || k.b === moved).map(k => k.id));
+  };
+  svg.addEventListener('pointerup', endDrag);
+  svg.addEventListener('pointercancel', endDrag);
+  svg.addEventListener('click', e => {
+    if (dragged) { dragged = false; return; }
+    // The board is redrawn when a point is pressed, so look up what is under the pointer now.
+    const at = document.elementFromPoint(e.clientX, e.clientY), g = at && svg.contains(at) ? at.closest('[data-id]') : null;
+    let id = g ? g.getAttribute('data-id') : null;
+    /* A point's tap area is a fingertip wide, so on a short piece the two end points' areas cover
+       the whole piece. When choosing or labeling (not drawing), a tap that is on a piece, arc or
+       circle and not right on the dot means that piece. */
+    const p = id && Model.point(doc, id), onAngle = id && Model.angle(doc, id);
+    if ((p || onAngle) && (tool === 'select' || tool === 'text')) {
+      const M = toModel(e), toPx = Render.U * svg.getBoundingClientRect().width / (Model.size(doc).w * Render.U);
+      const under = document.elementsFromPoint(e.clientX, e.clientY).map(x => (svg.contains(x) ? x.closest('.piece, .arc, .circ') : null)).find(Boolean);
+      const uid = under && under.getAttribute('data-id'), k = uid && Model.piece(doc, uid);
+      // How far the tap is, on screen, from the dot and from the line the piece lies on.
+      const fromDot = p ? Math.hypot(M.x - p.x, M.y - p.y) * toPx : Infinity;
+      const A = k && Model.point(doc, k.a), B = k && Model.point(doc, k.b);
+      const fromLine = k ? Math.abs((M.x - A.x) * (B.y - A.y) - (M.y - A.y) * (B.x - A.x)) / Math.hypot(B.x - A.x, B.y - A.y) * toPx : Infinity;
+      // Off the dot: a tap right on a line means the line; a tap inside an angle mark means the mark;
+      // otherwise whatever piece, arc or circle is there.
+      const mark = document.elementsFromPoint(e.clientX, e.clientY).map(x => (svg.contains(x) ? x.closest('.angle') : null)).find(Boolean);
+      if (p && fromDot > 9) id = uid && fromLine < 6 ? uid : mark ? mark.getAttribute('data-id') : uid || id;
+      // An angle mark's tap area lies over the pieces that form it: a tap right on a line means the line.
+      else if (onAngle && uid && fromLine < 6) id = uid;
+    }
+    /* Tapping the piece that is already chosen steps to the next thing at that spot: on a line or
+       ray, the segment between the two points the tap falls between; on a segment drawn over a line
+       or ray, back to that line or ray. */
+    const was = pressSel; pressSel = null;
+    const again = tool === 'select' && id && (id === sel || id === was);
+    const cur = again ? Model.piece(doc, id) : null;
+    if (cur) {
+      const M = toModel(e), A = Model.point(doc, cur.a), B = Model.point(doc, cur.b);
+      const t = q => ((q.x - A.x) * (B.x - A.x) + (q.y - A.y) * (B.y - A.y)) / ((B.x - A.x) ** 2 + (B.y - A.y) ** 2);
+      if (cur.kind !== 'segment') {
+        const part = partsOf(cur).find(([m, n]) => t(M) >= t(m) && t(M) <= t(n));
+        if (part) { cardUsed = Date.now(); if (choosePart(cur, part[0], part[1])) return; }
+      } else {
+        const onIt = k => { const ids = Model.pointsOn(doc, k.id).map(q => q.id); return ids.includes(cur.a) && ids.includes(cur.b); };
+        const below = doc.pieces.find(k => k.kind !== 'segment' && onIt(k));
+        if (below) { say(''); select(below.id); return; }
+      }
+    }
+    /* The same for a circle: tapping the chosen circle between two points on it chooses the arc
+       between them (drawing it first if need be), and tapping the chosen arc goes back to the circle. */
+    const ring = again ? Model.circle(doc, id) : null;
+    const bow = again ? Model.arc(doc, id) : null;
+    if (bow && Model.circle(doc, bow.c)) { say(''); select(bow.c); return; }
+    if (ring) {
+      const M = toModel(e), C = Model.point(doc, ring.c);
+      const turn = q => ((Math.atan2(q.y - C.y, q.x - C.x) * 180 / Math.PI) % 360 + 360) % 360;
+      const on = Model.pointsOnCircle(doc, ring.id);
+      if (on.length >= 2) {
+        // The two points on either side of the tap, going counterclockwise from m to n.
+        const tm = turn(M), i = on.findIndex(q => turn(q) > tm), n = on[i < 0 ? 0 : i], m = on[(i < 0 ? on.length : i) - 1] || on[on.length - 1];
+        if (chooseArc(ring, m, n)) return;
+      }
+    }
+    act(id, toModel(e));
+  });
+  svg.addEventListener('keydown', e => {
+    const g = e.target.closest('[data-id]');
+    if (!g) return;
+    const id = g.getAttribute('data-id'), p = Model.point(doc, id), t = Model.text(doc, id);
+    const dirs = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, 1], ArrowDown: [0, -1] };
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); act(id, null); }
+    else if (dirs[e.key] && (p || t) && tool === 'select') {
+      e.preventDefault();
+      const step = snapOn() ? 1 : 0.1, dx = dirs[e.key][0] * step, dy = dirs[e.key][1] * step;   // with snapping off, the arrows nudge
+      sel = id;
+      const ok = change(() => {
+        if (!p) return Model.moveText(doc, id, t.x + dx / 2, t.y + dy / 2);
+        const fine = snapOn() ? false : 'slide';   // the arrow keys slide a held point along its piece; they never pull it off
+        if (!Model.rideOf(doc, id) && !p.hold) return Model.movePoint(doc, id, p.x + dx, p.y + dy);
+        const S = Model.snap(doc, { x: p.x + dx, y: p.y + dy }, id, undefined, fine);       // an arc's end steps around its circle; a held point along its piece
+        return Model.movePoint(doc, id, S.x, S.y, S.hold || null);
+      });
+      say(ok !== false ? '' : p && p.hold && p.hold.cross ? `${Model.describe(doc, id)} stays ${Model.holdText(doc, p)}. To move it by itself, choose Let It Move Freely in its form.` : 'It can’t move there. Try another direction.');
+      redraw();                 // the form and the list of pieces show the new measures
+    }
+  });
+
+  // ---------- Buttons and keys ----------
+  $('tools').addEventListener('click', e => { const b = e.target.closest('button[data-tool]'); if (b) setTool(b.dataset.tool); });
+  // The keyboard way to add a point: it lands on the free grid dot nearest the middle, selected and ready to move.
+  $('add-center').addEventListener('click', () => {
+    const g = Model.size(doc), cx = Math.round(g.w / 2), cy = Math.round(g.h / 2);
+    let best = null;
+    for (let x = 1; x < g.w; x++) for (let y = 1; y < g.h; y++) {
+      if (Model.pointAt(doc, x, y)) continue;
+      const d = (x - cx) ** 2 + (y - cy) ** 2;
+      if (!best || d < best.d) best = { x, y, d };
+    }
+    if (!best) return;
+    const id = change(() => Model.addPoint(doc, best.x, best.y));
+    tool = 'select'; picks = [];
+    select(id);
+    const e = svg.querySelector(`[data-id="${id}"]`);
+    if (e) e.focus();
+    say(`${Model.describe(doc, id)} added and selected. Use the arrow keys to move it, then choose your drawing tool again.`);
+  });
+  function undo() { const d = hist.undo(doc); if (d) { doc = d; picks = []; say('Undone.'); redraw(); } }
+  function redo() { const d = hist.redo(doc); if (d) { doc = d; picks = []; say('Redone.'); redraw(); } }
+  $('undo').addEventListener('click', undo);
+  $('redo').addEventListener('click', redo);
+  $('delete').addEventListener('click', removeSelected);
+  $('clear').addEventListener('click', () => {
+    if (!Model.bounds(doc)) return;
+    hist.save(doc);
+    doc = Model.create(doc.grid); sel = null; picks = [];
+    say('Cleared. Undo brings it back.');
+    redraw();
+  });
+  // Snap to Grid is a way of working, not part of the drawing: it is not saved with the picture.
+  $('snap').addEventListener('change', () => say(snapOn() ? 'Snap is on. Points land on grid dots, and on lines and circles they are close to.' : 'Snap is off. Points land exactly where you put them, and the arrow keys move them in small steps.'));
+  $('grid').addEventListener('change', e => {
+    if (change(() => Model.setGrid(doc, e.target.value)) === false) say('Some of the drawing would be off that grid. Move it toward the bottom left corner first.');
+    else say('');
+    redraw();
+  });
+  document.addEventListener('keydown', e => {
+    const inField = /^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName);
+    if ((e.ctrlKey || e.metaKey) && !inField && e.key.toLowerCase() === 'z') { e.preventDefault(); if (e.shiftKey) redo(); else undo(); }
+    else if ((e.ctrlKey || e.metaKey) && !inField && e.key.toLowerCase() === 'y') { e.preventDefault(); redo(); }
+    else if ((e.key === 'Delete' || e.key === 'Backspace') && !inField && sel) { e.preventDefault(); removeSelected(); }
+    else if (e.key === 'Escape' && picks.length) { picks = []; redraw(); }
+  });
+
+  $('finish-poly').addEventListener('click', () => { if (tool === 'polygon' && picks.length >= 3) finish(); });
+
+  // The note about scale: decided by the drawing, or set by the teacher.
+  $('scale').addEventListener('change', e => { change(() => { doc.scale = e.target.value; }); redraw(); $('scale').focus(); });
+
+  // ---------- The whole drawing ----------
+  // One switch for every mark, so the same diagram can be saved with and without them.
+  $('marks').addEventListener('click', () => {
+    change(() => { doc.marks = doc.marks === false; });
+    say(doc.marks ? 'Tick marks, arrows, arcs and boxes are showing.' : 'Tick marks, arrows, arcs and boxes are hidden. Labels and highlights still show.');
+    redraw();
+  });
+  $('fit').addEventListener('click', () => reshape(() => Solve.fitToFrame(doc)));
+  $('turn-left').addEventListener('click', () => reshape(() => Solve.rotate(doc, 15)));
+  $('turn-right').addEventListener('click', () => reshape(() => Solve.rotate(doc, -15)));
+  $('flip-x').addEventListener('click', () => reshape(() => Solve.flip(doc, 'x')));
+  $('flip-y').addEventListener('click', () => reshape(() => Solve.flip(doc, 'y')));
+
+  // ---------- Triangle From Measures ----------
+  const TRI = ['a', 'b', 'c', 'A', 'B', 'C'];
+  const triNote = msg => { $('tri-note').textContent = msg; };
+  function drawTri(t, given) {
+    $('tri-choice').innerHTML = '';
+    const made = reshape(() => Solve.drawTriangle(doc, t, given), triNote);
+    if (made === false) return;
+    tool = 'select'; picks = [];
+    select(made);
+    triNote('Drawn. The measures you gave are labeled.');
+  }
+  // The form shows the fields for the chosen figure.
+  const FIRST = { triangle: 'tri-a', angle: 'ang-deg', circle: 'cir-r' };
+  function showMeasures(kind) {
+    $('m-kind').value = kind;
+    for (const k of Object.keys(FIRST)) $('m-' + k).hidden = k !== kind;
+    $('tri-choice').innerHTML = ''; triNote('');
+  }
+  $('m-kind').addEventListener('change', e => showMeasures(e.target.value));
+  // An angle or a circle from what was typed; an empty box is left out, anything else must be a number.
+  function drawOther(kind) {
+    const read = id => { const raw = $(id).value.trim(); return raw ? Solve.number(raw) : undefined; };
+    const vals = kind === 'angle' ? { deg: read('ang-deg') } : { radius: read('cir-r'), arc: read('cir-arc') };
+    if (Object.values(vals).some(v => v !== undefined && isNaN(v))) { triNote('Use numbers only, like 7.5 or 40.'); return; }
+    if (kind === 'angle' && vals.deg === undefined) { triNote('Type the angle measure first.'); $('ang-deg').focus(); return; }
+    const made = reshape(() => (kind === 'angle' ? Solve.drawAngle(doc, vals.deg) : Solve.drawCircle(doc, vals)), triNote);
+    if (made === false) return;
+    tool = 'select'; picks = [];
+    select(made);
+    triNote('Drawn. The measures you gave are labeled.');
+  }
+  $('tri-draw').addEventListener('click', () => {
+    if ($('m-kind').value !== 'triangle') { drawOther($('m-kind').value); return; }
+    const m = {}, given = [];
+    $('tri-choice').innerHTML = '';
+    for (const k of TRI) {
+      const raw = $('tri-' + k).value.trim();
+      if (!raw) continue;
+      m[k] = Solve.number(raw);
+      if (isNaN(m[k])) { triNote('Use numbers only, like 7.5 or 40.'); $('tri-' + k).focus(); return; }
+      given.push(k);
+    }
+    const r = Solve.triangle(m);
+    if (r.error) { triNote(r.error); return; }
+    if (r.triangles.length === 1) { drawTri(r.triangles[0], given); return; }
+    // Two sides and an angle not between them can fit two triangles: the teacher picks.
+    const open = ['A', 'B', 'C'].find(k => !given.includes(k) && Math.abs(r.triangles[0][k] - r.triangles[1][k]) > 1e-6 && given.includes(k.toLowerCase()));
+    triNote('Two triangles fit those measures. Choose one.');
+    $('tri-choice').innerHTML = r.triangles.map((t, i) => `<button type="button" class="small" data-i="${i}">Draw the One With Angle ${open} = ${esc(Model.degText(t[open]))}</button>`).join('');
+    $('tri-choice').querySelectorAll('button').forEach(b => b.addEventListener('click', () => drawTri(r.triangles[+b.dataset.i], given)));
+  });
+
+  // Copy Alt Text. If the browser refuses to copy, the text in the box is selected so Ctrl+C still works.
+  // Put text on the clipboard. It only works during a click, so it is done before anything slow. True when it worked.
+  function copyText(str) {
+    const back = document.activeElement, t = document.createElement('textarea');
+    t.value = str; t.setAttribute('readonly', ''); t.setAttribute('aria-hidden', 'true');
+    t.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;';
+    document.body.appendChild(t);
+    t.select();
+    let ok = false;
+    try { ok = document.execCommand('copy'); } catch (err) { ok = false; }
+    t.remove();
+    if (back && back.focus) back.focus({ preventScroll: true });
+    return ok;
+  }
+  $('alt-copy').addEventListener('click', () => {
+    const box = $('alt'), ok = copyText(box.value);
+    if (!ok) { box.focus(); box.select(); }
+    $('alt-note').textContent = ok ? 'Copied. Paste it into the Alt Text box when you add the picture to your page.' : 'The text is selected. Press Ctrl+C (or Command+C) to copy it.';
+  });
+  // Choosing a line in the list of pieces selects that piece and opens its form.
+  $('words').addEventListener('click', e => {
+    const b = e.target.closest('button.word');
+    if (!b) return;
+    tool = 'select'; picks = [];
+    select(b.dataset.id);
+    const first = $('selected').querySelector('input, select, button');
+    if (first) first.focus();
+  });
+
+  // ---------- Start With: a common figure, dropped on the grid as ordinary pieces ----------
+  document.querySelectorAll('#starters button[data-start]').forEach(b => b.addEventListener('click', () => {
+    const made = reshape(() => Solve.starter(doc, b.dataset.start, +$('start-sides').value));
+    if (made === false) return;
+    tool = 'select'; picks = [];
+    select(made);
+  }));
+
+  // ---------- Open a Diagram: read back a picture this designer saved ----------
+  $('open').addEventListener('click', () => $('open-file').click());
+  $('open-file').addEventListener('change', e => {
+    const file = e.target.files[0], note = msg => { $('open-note').textContent = msg; };
+    // A picture that cannot be opened: the reasons, then what to do, in the same box as the scale reasons.
+    const WHY = {
+      none: ['It has no diagram inside it.', 'A screenshot, a photo, or a copy saved from a web page or a document does not keep the diagram.'],
+      damaged: ['It came from this designer, but its diagram cannot be read.', 'The file may have been edited or saved again by another program.'],
+      big: ['It is too big to be a picture from this designer.'],
+      unreadable: ['The file could not be read from this device.'],
+    };
+    const refuse = why => {
+      note('');
+      $('open-lead').textContent = `The picture "${file.name.slice(0, 60)}" was not opened because:`;
+      $('open-list').innerHTML = WHY[why].map(w => `<li>${esc(w)}</li>`).join('');
+      $('open-how').textContent = why === 'unreadable' ? 'Try choosing the file again.' : 'Choose a picture you saved with Download Picture, and keep that file as it is. Your drawing on the board has not changed.';
+      $('open-why').hidden = false;
+    };
+    e.target.value = '';
+    $('open-why').hidden = true;
+    if (!file) return;
+    if (file.size > 20 * 1024 * 1024) { refuse('big'); return; }
+    Export.open(file).then(r => {
+      let d = r.doc || null;
+      if (d) { try { Model.refresh(d); Render.draw(document.createElementNS(NS, 'svg'), d, {}); } catch (err) { d = null; } }
+      if (!d) { refuse(r.why || 'damaged'); return; }
+      hist.save(doc);
+      doc = d; sel = null; picks = []; tool = 'select';
+      redraw();
+      note('Opened. Undo brings back what was here before.');
+    }).catch(() => refuse('unreadable'));
+  });
+
+  // ---------- Download: one picture, sharp enough for a screen and for paper ----------
+  $('dl').addEventListener('click', () => {
+    if (!Model.bounds(doc)) { $('dl-note').textContent = 'Draw something first.'; return; }
+    // The alt text is copied at the click, and also saved inside the picture.
+    const alt = Model.altText(doc), copied = !!alt && copyText(alt);
+    Export.png(doc, NS, { scale: 3, bold: $('dl-bold').checked, bw: $('dl-bw').checked, alt }).then(blob => {
+      Export.download(blob, 'diagram.png');
+      $('dl-note').textContent = 'Saved as diagram.png in your downloads. ' + (copied ? 'Its alt text is copied: paste it into the Alt Text box when you add the picture to your page.'
+        : 'For its alt text, choose Copy Alt Text under the board, then paste it into the Alt Text box when you add the picture to your page.');
+    }).catch(() => { $('dl-note').textContent = 'The picture could not be made. Try again.'; });
+  });
+
+  document.querySelector('details.words').addEventListener('toggle', fitAlt);
+  window.addEventListener('resize', () => redraw(false));
+  redraw();
+})();
+</script>
+</body>
+</html>

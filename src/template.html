@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Geometry Diagram Designer</title>
+<style>/*STYLE*/</style>
+</head>
+<body>
+<main id="app">
+  <header class="bar">
+    <h1>Geometry Diagram Designer</h1>
+  </header>
+  <div class="split">
+    <div class="card board-card">
+      <div id="starters" class="tools starters" role="group" aria-labelledby="start-title">
+        <h2 class="row-title" id="start-title">Start With</h2>
+        <button type="button" class="small" data-start="triangle">Triangle</button>
+        <button type="button" class="small" data-start="quadrilateral">Quadrilateral</button>
+        <button type="button" class="small" data-start="transversal">Parallel Lines and a Transversal</button>
+        <button type="button" class="small" data-start="angle">Angle</button>
+        <button type="button" class="small" data-start="circle">Circle</button>
+        <button type="button" class="small" data-start="tangents">Circle With Tangent Lines</button>
+        <span class="start-regular">
+          <button type="button" class="small" data-start="regular">Regular Polygon</button>
+          <label class="grid-pick" for="start-sides">Sides
+            <select id="start-sides">
+              <option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6" selected>6</option>
+              <option value="7">7</option><option value="8">8</option><option value="9">9</option><option value="10">10</option><option value="11">11</option><option value="12">12</option>
+            </select>
+          </label>
+        </span>
+      </div>
+      <h2 class="card-title" id="draw-title">Draw</h2>
+      <div id="tools" class="tools" role="group" aria-labelledby="draw-title">
+        <button type="button" data-tool="select" aria-pressed="true">Select</button>
+        <button type="button" data-tool="point" aria-pressed="false">Point</button>
+        <button type="button" data-tool="segment" aria-pressed="false">Segment</button>
+        <button type="button" data-tool="ray" aria-pressed="false">Ray</button>
+        <button type="button" data-tool="line" aria-pressed="false">Line</button>
+        <button type="button" data-tool="circle" aria-pressed="false">Circle</button>
+        <button type="button" data-tool="arc" aria-pressed="false">Arc</button>
+        <button type="button" data-tool="polygon" aria-pressed="false">Polygon</button>
+        <button type="button" data-tool="angle" aria-pressed="false">Angle Mark</button>
+        <button type="button" data-tool="text" aria-pressed="false">Text Label</button>
+      </div>
+      <svg id="board" role="group" aria-label="Diagram" tabindex="-1"></svg>
+      <p class="hint-row"><span id="hint" class="hint"></span><button type="button" id="finish-poly" class="small primary" hidden>Finish Polygon</button><button type="button" id="add-center" class="small" hidden>Add a Point</button></p>
+      <p id="status" class="status" role="status" aria-live="polite"></p>
+      <p class="hint keys">With a keyboard: Tab to a point or piece, Enter to choose it, arrow keys to move a point, Delete to remove it.</p>
+      <div class="tools edit-tools">
+        <button type="button" id="undo" class="small">Undo</button>
+        <button type="button" id="redo" class="small">Redo</button>
+        <button type="button" id="delete" class="small">Delete</button>
+        <button type="button" id="clear" class="small">Start Over</button>
+        <label class="check snap-pick" for="snap"><input type="checkbox" id="snap" checked> Snap to Grid</label>
+        <label class="grid-pick" for="grid">Grid Size
+          <select id="grid">
+            <option value="small">Small</option>
+            <option value="medium" selected>Medium</option>
+            <option value="large">Large</option>
+            <option value="xlarge">Extra Large</option>
+          </select>
+        </label>
+      </div>
+      <div class="tools edit-tools" role="group" aria-labelledby="whole-title">
+        <h2 class="row-title" id="whole-title">Whole Drawing</h2>
+        <button type="button" id="marks" class="small toggle" aria-pressed="true">Marks Are On</button>
+        <button type="button" id="fit" class="small">Fit to Frame</button>
+        <button type="button" id="turn-left" class="small">Turn Left</button>
+        <button type="button" id="turn-right" class="small">Turn Right</button>
+        <button type="button" id="flip-x" class="small">Flip Left to Right</button>
+        <button type="button" id="flip-y" class="small">Flip Top to Bottom</button>
+        <label class="grid-pick" for="scale">Scale Note
+          <select id="scale">
+            <option value="auto" selected>Automatic</option>
+            <option value="not">Not Drawn to Scale</option>
+            <option value="yes">Drawn to Scale</option>
+            <option value="none">No Note</option>
+          </select>
+        </label>
+      </div>
+      <div id="scale-why" class="scale-why" role="status" aria-live="polite" hidden>
+        <p class="lead-sm" id="scale-lead"></p>
+        <ul id="scale-list"></ul>
+        <p id="scale-how"></p>
+      </div>
+      <details class="words" open>
+        <summary>Alt Text</summary>
+        <label class="field" for="alt">A description of the picture, for students who cannot see it
+          <textarea id="alt" rows="1" readonly placeholder="Nothing is drawn yet."></textarea>
+        </label>
+        <div class="field-row"><button type="button" id="alt-copy" class="small">Copy Alt Text</button></div>
+        <p id="alt-note" class="hint" role="status" aria-live="polite"></p>
+        <p class="hint keys">Download Picture copies this text too. Paste it into the Alt Text box when you add the picture to your page.</p>
+        <details class="words-list">
+          <summary>Every Element in a List</summary>
+          <p class="hint">Each element&rsquo;s geometric label, then what the diagram shows for it. Choose one to open its form.</p>
+          <p class="el-head" aria-hidden="true"><span class="el-name">Label</span><span class="el-draw">In the Diagram</span></p>
+          <ul id="words"></ul>
+        </details>
+      </details>
+    </div>
+    <div class="side">
+      <div class="card" id="sel-card">
+        <h2 class="card-title" id="sel-title">Selected</h2>
+        <div id="selected" role="group" aria-labelledby="sel-title"></div>
+        <p id="sel-note" class="status"></p>
+      </div>
+      <details class="card" id="tri-card">
+        <summary>Draw From Measures</summary>
+        <label class="field" for="m-kind">Figure
+          <select id="m-kind">
+            <option value="triangle" selected>Triangle</option>
+            <option value="angle">Angle</option>
+            <option value="circle">Circle</option>
+          </select>
+        </label>
+        <div id="m-angle" hidden>
+          <p class="hint">Type the measure. The angle is drawn exactly, with its measure labeled.</p>
+          <label class="field" for="ang-deg">Angle Measure<input type="text" id="ang-deg" inputmode="decimal" autocomplete="off" placeholder="40"></label>
+        </div>
+        <div id="m-circle" hidden>
+          <p class="hint">Type a radius, an arc measure, or both. The circle is drawn as large as fits, with what you typed labeled.</p>
+          <div class="tri-grid">
+            <label class="field" for="cir-r">Radius<input type="text" id="cir-r" inputmode="decimal" autocomplete="off" placeholder="5"></label>
+            <label class="field" for="cir-arc">Arc Measure<input type="text" id="cir-arc" inputmode="decimal" autocomplete="off" placeholder="120"></label>
+          </div>
+        </div>
+        <div id="m-triangle">
+        <p class="hint">Fill in any three, with at least one side. Side a is across from angle A. The triangle is drawn to exact shape, as large as fits.</p>
+        <div class="tri-grid">
+          <label class="field" for="tri-a">Side a<input type="text" id="tri-a" inputmode="decimal" autocomplete="off"></label>
+          <label class="field" for="tri-A">Angle A<input type="text" id="tri-A" inputmode="decimal" autocomplete="off"></label>
+          <label class="field" for="tri-b">Side b<input type="text" id="tri-b" inputmode="decimal" autocomplete="off"></label>
+          <label class="field" for="tri-B">Angle B<input type="text" id="tri-B" inputmode="decimal" autocomplete="off"></label>
+          <label class="field" for="tri-c">Side c<input type="text" id="tri-c" inputmode="decimal" autocomplete="off"></label>
+          <label class="field" for="tri-C">Angle C<input type="text" id="tri-C" inputmode="decimal" autocomplete="off"></label>
+        </div>
+        </div>
+        <button type="button" id="tri-draw" class="primary small">Draw the Figure</button>
+        <p id="tri-note" class="status" role="status" aria-live="polite"></p>
+        <div id="tri-choice" class="field-row"></div>
+      </details>
+      <div class="card">
+        <h2 class="card-title">Download</h2>
+        <button type="button" id="dl" class="primary wide">Download Picture</button>
+        <label class="check" for="dl-bold"><input type="checkbox" id="dl-bold"> Bold Lines (for a Projector)</label>
+        <label class="check" for="dl-bw"><input type="checkbox" id="dl-bw"> Black and White (for Printing)</label>
+        <p id="dl-note" class="hint" role="status" aria-live="polite"></p>
+      </div>
+      <div class="card">
+        <h2 class="card-title">Open</h2>
+        <button type="button" id="open" class="wide">Open a Diagram</button>
+        <input type="file" id="open-file" accept="image/png" hidden>
+        <p class="hint">Keep the picture you download: it can be opened here again to change it.</p>
+        <p id="open-note" class="hint" role="status" aria-live="polite"></p>
+        <div id="open-why" class="scale-why" role="status" aria-live="polite" hidden>
+          <p class="lead-sm" id="open-lead"></p>
+          <ul id="open-list"></ul>
+          <p id="open-how"></p>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+<script>/*MODEL*/</script>
+<script>/*RENDER*/</script>
+<script>/*EXPORT*/</script>
+<script>/*UI*/</script>
+</body>
+</html>
